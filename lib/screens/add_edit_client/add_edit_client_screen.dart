@@ -97,26 +97,30 @@ class _AddEditClientScreenState extends State<AddEditClientScreen> {
 
   Future<void> _selectDate() async {
     final controller = TextEditingController(text: _selectedStartDate);
-    final result = await showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('تاریخ شروع', style: TextStyle(fontFamily: 'Vazir', fontWeight: FontWeight.w800)),
-        content: TextField(
-          controller: controller,
-          decoration: InputDecoration(hintText: '1405/06/21'),
-          style: TextStyle(fontFamily: 'Vazir'),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: Text('لغو', style: TextStyle(fontFamily: 'Vazir'))),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, controller.text),
-            child: Text('تایید', style: TextStyle(fontFamily: 'Vazir', color: AppTokens.primary, fontWeight: FontWeight.w700)),
+    try {
+      final result = await showDialog<String>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text('تاریخ شروع', style: TextStyle(fontFamily: 'Vazir', fontWeight: FontWeight.w800)),
+          content: TextField(
+            controller: controller,
+            decoration: InputDecoration(hintText: '1405/06/21'),
+            style: TextStyle(fontFamily: 'Vazir'),
           ),
-        ],
-      ),
-    );
-    if (result != null && result.isNotEmpty) {
-      setState(() => _selectedStartDate = result);
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: Text('لغو', style: TextStyle(fontFamily: 'Vazir'))),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, controller.text),
+              child: Text('تایید', style: TextStyle(fontFamily: 'Vazir', color: AppTokens.primary, fontWeight: FontWeight.w700)),
+            ),
+          ],
+        ),
+      );
+      if (result != null && result.isNotEmpty) {
+        setState(() => _selectedStartDate = result);
+      }
+    } finally {
+      controller.dispose();
     }
   }
 

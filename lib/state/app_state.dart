@@ -192,15 +192,17 @@ class AppState extends ChangeNotifier {
     await _db.deleteTag(tagId);
     tags.removeWhere((t) => t.id == tagId);
     // Strip this tagId from all clients that referenced it
+    final futures = <Future>[];
     for (int i = 0; i < clients.length; i++) {
       final c = clients[i];
       if (c.tagIds.contains(tagId)) {
         final updated =
             c.copyWith(tagIds: c.tagIds.where((id) => id != tagId).toList());
         clients[i] = updated;
-        await _db.updateClient(updated);
+        futures.add(_db.updateClient(updated));
       }
     }
+    await Future.wait(futures);
     notifyListeners();
   }
 

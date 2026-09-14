@@ -407,7 +407,10 @@ onTap: () => _openClientListSheet(
             SizedBox(height: 18),
 
             // Total clients
-            _TotalClientsCard(count: state.clients.length),
+            _TotalClientsCard(
+              count: state.clients.length,
+              onTap: () => context.read<AppState>().setTabIndex(1),
+            ),
           ],
         ),
       ),
@@ -543,53 +546,58 @@ class _BonusBanner extends StatelessWidget {
 
 class _TotalClientsCard extends StatelessWidget {
   final int count;
-  const _TotalClientsCard({required this.count});
+  final VoidCallback? onTap;
+  const _TotalClientsCard({required this.count, this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppTokens.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTokens.outlineVariant),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.chevron_right,
-              color: AppTokens.onSurfaceVar, size: 20),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'کل کلاینت‌ها',
-                  textAlign: TextAlign.start,
-                  style: TextStyle(
-                    fontFamily: 'Vazir',
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w600,
-                    color: AppTokens.onSurfaceVar,
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppTokens.surface,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppTokens.outlineVariant),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.chevron_right,
+                color: AppTokens.onSurfaceVar, size: 20),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'کل کلاینت‌ها',
+                    textAlign: TextAlign.start,
+                    style: TextStyle(
+                      fontFamily: 'Vazir',
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600,
+                      color: AppTokens.onSurfaceVar,
+                    ),
                   ),
-                ),
-                SizedBox(height: 2),
-                Text(
-                  fa(count),
-                  textAlign: TextAlign.start,
-                  style: TextStyle(
-                    fontFamily: 'Vazir',
-                    fontSize: 26,
-                    fontWeight: FontWeight.w900,
-                    color: AppTokens.onSurface,
-                    height: 1,
+                  SizedBox(height: 2),
+                  Text(
+                    fa(count),
+                    textAlign: TextAlign.start,
+                    style: TextStyle(
+                      fontFamily: 'Vazir',
+                      fontSize: 26,
+                      fontWeight: FontWeight.w900,
+                      color: AppTokens.onSurface,
+                      height: 1,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-          Icon(Icons.chevron_left,
-              color: AppTokens.onSurfaceVar, size: 20),
-        ],
+            Icon(Icons.chevron_left,
+                color: AppTokens.onSurfaceVar, size: 20),
+          ],
+        ),
       ),
     );
   }
