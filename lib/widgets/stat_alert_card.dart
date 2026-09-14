@@ -48,7 +48,7 @@ class StatAlertCard extends StatelessWidget {
                 ),
                 const Spacer(),
                 Icon(
-                  Icons.chevron_left,
+                  Icons.chevron_right,
                   size: 16,
                   color: AppTokens.onSurfaceVar.withValues(alpha: 0.4),
                 ),
@@ -57,6 +57,7 @@ class StatAlertCard extends StatelessWidget {
             const Spacer(),
             Text(
               value.toString(),
+              textAlign: TextAlign.start,
               style: TextStyle(
                 fontFamily: 'Vazir',
                 fontSize: 28,
@@ -69,6 +70,7 @@ class StatAlertCard extends StatelessWidget {
             SizedBox(height: 4),
             Text(
               label,
+              textAlign: TextAlign.start,
               style: TextStyle(
                 fontFamily: 'Vazir',
                 fontSize: 12,

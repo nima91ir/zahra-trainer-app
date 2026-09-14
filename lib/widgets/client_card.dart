@@ -62,7 +62,7 @@ class ClientCard extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.all(14),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               // Header: avatar + name + chevron
               Row(
@@ -279,10 +279,11 @@ class _StatCell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         Text(
           label,
+          textAlign: TextAlign.end,
           style: TextStyle(
             fontFamily: 'Vazir',
             fontSize: 11,
@@ -293,6 +294,7 @@ class _StatCell extends StatelessWidget {
         SizedBox(height: 2),
         Text(
           value,
+          textAlign: TextAlign.end,
           style: TextStyle(
             fontFamily: 'Vazir',
             fontSize: 16,

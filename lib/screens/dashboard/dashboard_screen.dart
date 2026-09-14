@@ -217,6 +217,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
+    final today = jc.JalaliDate.today();
 
     // Attendance dots for the current month
     final presentCounts = <String, int>{};
@@ -264,6 +265,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               state.userName.isEmpty
                   ? 'سلام 👋'
                   : 'سلام ${state.userName} 👋',
+              textAlign: TextAlign.start,
               style: TextStyle(
                 fontFamily: 'Vazir',
                 fontSize: 22,
@@ -273,7 +275,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
             SizedBox(height: 4),
             Text(
-              '${_viewMonth.weekdayName} ${fa(_viewMonth.day)} ${_viewMonth.monthName} ${fa(_viewMonth.year)}',
+              '${today.weekdayName} ${fa(today.day)} ${today.monthName} ${fa(today.year)}',
+              textAlign: TextAlign.start,
               style: TextStyle(
                 fontFamily: 'Vazir',
                 fontSize: 13,
@@ -482,26 +485,18 @@ class _BonusBanner extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                // Icon box
-                  Container(
-                    width: 46,
-                    height: 46,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.22),
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                  alignment: Alignment.center,
-                  child: Icon(Icons.add,
-                      color: Colors.white, size: 22),
-                ),
+                // Chevron (start side in RTL)
+                Icon(Icons.chevron_right,
+                    color: Colors.white.withValues(alpha: 0.7), size: 22),
                 SizedBox(width: 14),
                 // Body column
                 Expanded(
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         'کلاینت‌هایی که جلسه اضافه دارند',
+                        textAlign: TextAlign.start,
                         style: TextStyle(
                           fontFamily: 'Vazir',
                           fontSize: 12.5,
@@ -512,6 +507,7 @@ class _BonusBanner extends StatelessWidget {
                       SizedBox(height: 2),
                       Text(
                         fa(count),
+                        textAlign: TextAlign.start,
                         style: TextStyle(
                           fontFamily: 'Vazir',
                           fontSize: 26,
@@ -524,9 +520,18 @@ class _BonusBanner extends StatelessWidget {
                   ),
                 ),
                 SizedBox(width: 14),
-                // Chevron (right-aligned)
-                Icon(Icons.chevron_right,
-                    color: Colors.white.withValues(alpha: 0.7), size: 22),
+                // Icon box (end side in RTL)
+                Container(
+                  width: 46,
+                  height: 46,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.22),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  alignment: Alignment.center,
+                  child: Icon(Icons.add,
+                      color: Colors.white, size: 22),
+                ),
               ],
             ),
           ),
@@ -551,24 +556,15 @@ class _TotalClientsCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Container(
-            width: 46,
-            height: 46,
-            decoration: BoxDecoration(
-              color: AppTokens.primary.withValues(alpha: 0.14),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            alignment: Alignment.center,
-            child: Icon(Icons.people_outline,
-                color: AppTokens.primary, size: 22),
-          ),
-          SizedBox(width: 14),
+          Icon(Icons.chevron_right,
+              color: AppTokens.onSurfaceVar, size: 20),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   'کل کلاینت‌ها',
+                  textAlign: TextAlign.start,
                   style: TextStyle(
                     fontFamily: 'Vazir',
                     fontSize: 12.5,
@@ -579,6 +575,7 @@ class _TotalClientsCard extends StatelessWidget {
                 SizedBox(height: 2),
                 Text(
                   fa(count),
+                  textAlign: TextAlign.start,
                   style: TextStyle(
                     fontFamily: 'Vazir',
                     fontSize: 26,
