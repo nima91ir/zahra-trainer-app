@@ -1,6 +1,6 @@
 name: zahra_trainer
 description: Personal trainer client management app in Persian.
-publish_to: 'none'
+publish_to: 'https://pub.myket.ir'
 version: 1.0.0+1
 
 environment:
