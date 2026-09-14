@@ -52,7 +52,7 @@ class AppDatabase {
     final db = await _database;
     final store = intMapStoreFactory.store(storeClients);
     final records = await store.find(db);
-    return records.map((r) => Client.fromMap(r.value)).toList();
+    return records.map((r) => Client.fromMap(<String, dynamic>{'id': r.key, ...r.value})).toList();
   }
 
   Future<int> insertClient(Client client) async {
@@ -79,7 +79,7 @@ class AppDatabase {
     final db = await _database;
     final store = intMapStoreFactory.store(storeTags);
     final records = await store.find(db);
-    return records.map((r) => Tag.fromMap(r.value)).toList();
+    return records.map((r) => Tag.fromMap(<String, dynamic>{'id': r.key, ...r.value})).toList();
   }
 
   Future<int> insertTag(Tag tag) async {
@@ -100,7 +100,7 @@ class AppDatabase {
     final db = await _database;
     final store = intMapStoreFactory.store(storeTemplates);
     final records = await store.find(db);
-    return records.map((r) => PlanTemplate.fromMap(r.value)).toList();
+    return records.map((r) => PlanTemplate.fromMap(<String, dynamic>{'id': r.key, ...r.value})).toList();
   }
 
   Future<int> insertTemplate(PlanTemplate template) async {
@@ -127,7 +127,7 @@ class AppDatabase {
     final db = await _database;
     final store = intMapStoreFactory.store(storePlans);
     final records = await store.find(db);
-    return records.map((r) => ClientPlan.fromMap(r.value)).toList();
+    return records.map((r) => ClientPlan.fromMap(<String, dynamic>{'id': r.key, ...r.value})).toList();
   }
 
   Future<List<ClientPlan>> getPlansByClient(int clientId) async {
@@ -137,7 +137,7 @@ class AppDatabase {
       db,
       finder: Finder(filter: Filter.equals('clientId', clientId)),
     );
-    return records.map((r) => ClientPlan.fromMap(r.value)).toList();
+    return records.map((r) => ClientPlan.fromMap(<String, dynamic>{'id': r.key, ...r.value})).toList();
   }
 
   Future<int> insertPlan(ClientPlan plan) async {
@@ -164,7 +164,7 @@ class AppDatabase {
     final db = await _database;
     final store = intMapStoreFactory.store(storeAttendance);
     final records = await store.find(db);
-    return records.map((r) => AttendanceRecord.fromMap(r.value)).toList();
+    return records.map((r) => AttendanceRecord.fromMap(<String, dynamic>{'id': r.key, ...r.value})).toList();
   }
 
   Future<List<AttendanceRecord>> getAttendanceByClient(int clientId) async {
@@ -174,7 +174,7 @@ class AppDatabase {
       db,
       finder: Finder(filter: Filter.equals('clientId', clientId)),
     );
-    return records.map((r) => AttendanceRecord.fromMap(r.value)).toList();
+    return records.map((r) => AttendanceRecord.fromMap(<String, dynamic>{'id': r.key, ...r.value})).toList();
   }
 
   Future<int> insertAttendance(AttendanceRecord record) async {
@@ -194,28 +194,30 @@ class AppDatabase {
   /// Deletes a client AND all their plans AND all their attendance.
   Future<void> deleteClientCascade(int clientId) async {
     final db = await _database;
+    await db.transaction((tx) async {
+      // 1. Attendance
+      final attStore = intMapStoreFactory.store(storeAttendance);
+      final attRecords = await attStore.find(
+        tx,
+        finder: Finder(filter: Filter.equals('clientId', clientId)),
+      );
+      for (final r in attRecords) {
+        await attStore.record(r.key).delete(tx);
+      }
 
-    // 1. Attendance
-    final attStore = intMapStoreFactory.store(storeAttendance);
-    final attRecords = await attStore.find(
-      db,
-      finder: Finder(filter: Filter.equals('clientId', clientId)),
-    );
-    for (final r in attRecords) {
-      await attStore.record(r.key).delete(db);
-    }
+      // 2. Plans
+      final planStore = intMapStoreFactory.store(storePlans);
+      final planRecords = await planStore.find(
+        tx,
+        finder: Finder(filter: Filter.equals('clientId', clientId)),
+      );
+      for (final r in planRecords) {
+        await planStore.record(r.key).delete(tx);
+      }
 
-    // 2. Plans
-    final planStore = intMapStoreFactory.store(storePlans);
-    final planRecords = await planStore.find(
-      db,
-      finder: Finder(filter: Filter.equals('clientId', clientId)),
-    );
-    for (final r in planRecords) {
-      await planStore.record(r.key).delete(db);
-    }
-
-    // 3. Client
-    await deleteClient(clientId);
+      // 3. Client
+      final clientStore = intMapStoreFactory.store(storeClients);
+      await clientStore.record(clientId).delete(tx);
+    });
   }
 }

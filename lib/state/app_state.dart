@@ -30,19 +30,29 @@ class AppState extends ChangeNotifier {
   static const String _prefsKeyUserName = 'user_name';
 
   // ─── Loads ───
+  Future<void> init() async {
+    await loadAll();
+    await seedIfEmpty();
+  }
+
   Future<void> loadAll() async {
     isLoading = true;
     notifyListeners();
-    await Future.wait([
-      _loadClients(),
-      _loadTemplates(),
-      _loadPlans(),
-      _loadAttendance(),
-      _loadTags(),
-      _loadUserName(),
-    ]);
-    isLoading = false;
-    notifyListeners();
+    try {
+      await Future.wait([
+        _loadClients(),
+        _loadTemplates(),
+        _loadPlans(),
+        _loadAttendance(),
+        _loadTags(),
+        _loadUserName(),
+      ]);
+    } catch (e) {
+      // Prevent the UI from staying stuck on loading if any store fails.
+    } finally {
+      isLoading = false;
+      notifyListeners();
+    }
   }
 
   Future<void> _loadClients() async {
@@ -135,10 +145,11 @@ class AppState extends ChangeNotifier {
 
   // ═══════════════ Client mutations ═══════════════
 
-  Future<void> addClient(Client client) async {
+  Future<int> addClient(Client client) async {
     final id = await _db.insertClient(client);
     clients.add(client.copyWith(id: id));
     notifyListeners();
+    return id;
   }
 
   Future<void> updateClient(Client client) async {
@@ -161,7 +172,8 @@ class AppState extends ChangeNotifier {
     final idx = clients.indexWhere((c) => c.id == clientId);
     if (idx == -1) return;
     final current = clients[idx];
-    final next = (current.bonusSessions + delta).clamp(0, 999);
+    final next = current.bonusSessions + delta;
+    if (next < 0) return;
     final updated = current.copyWith(bonusSessions: next);
     clients[idx] = updated;
     await _db.updateClient(updated);
@@ -316,7 +328,7 @@ class AppState extends ChangeNotifier {
       await _promoteNextQueued(removed.clientId);
     }
 
-    _renumberQueue(removed.clientId);
+    await _renumberQueue(removed.clientId);
     notifyListeners();
   }
 
@@ -344,18 +356,27 @@ class AppState extends ChangeNotifier {
     int clientId,
     Map<String, String> dateStatusMap,
   ) async {
-    // 1. Snapshot old dates so we can compute the delta
-    final oldDates = attendance
-        .where((a) => a.clientId == clientId)
-        .map((a) => a.date)
-        .toSet();
-    final newDates = dateStatusMap.keys.toSet();
+    // 1. Snapshot old statuses so we can compute the delta per date
+    final oldStatusMap = <String, String>{};
+    for (final a in attendance.where((a) => a.clientId == clientId)) {
+      oldStatusMap[a.date] = a.status;
+    }
 
-    final added = newDates.difference(oldDates).length;
-    final removed = oldDates.difference(newDates).length;
-    final delta = added - removed; // positive = more sessions used
+    // 2. Compute delta from per-date changes
+    // Both 'present' and 'absent' consume 1 session from the active plan,
+    // so only additions/removals of dated records affect plan remaining.
+    int delta = 0;
+    for (final entry in dateStatusMap.entries) {
+      final oldStatus = oldStatusMap[entry.key];
+      final newStatus = entry.value;
+      if (oldStatus == null) {
+        if (newStatus == 'present' || newStatus == 'absent') delta += 1;
+      } else if (newStatus.isEmpty) {
+        if (oldStatus == 'present' || oldStatus == 'absent') delta -= 1;
+      }
+    }
 
-    // 2. Delete existing records
+    // 3. Delete existing records
     final existing =
         attendance.where((a) => a.clientId == clientId).toList();
     for (final r in existing) {
@@ -363,7 +384,7 @@ class AppState extends ChangeNotifier {
     }
     attendance.removeWhere((a) => a.clientId == clientId);
 
-    // 3. Insert new records
+    // 4. Insert new records
     for (final entry in dateStatusMap.entries) {
       final rec = AttendanceRecord(
         clientId: clientId,
@@ -374,7 +395,7 @@ class AppState extends ChangeNotifier {
       attendance.add(rec.copyWith(id: id));
     }
 
-    // 4. Adjust the active plan's remaining by the delta
+    // 5. Adjust the active plan's remaining by the delta
     if (delta != 0) {
       final active = activePlanForClient(clientId);
       if (active != null) {
@@ -385,8 +406,24 @@ class AppState extends ChangeNotifier {
         if (idx != -1) plans[idx] = updated;
         await _db.updatePlan(updated);
 
-        // 5. If this caused the plan to hit 0, promote queued plan
+        // 6. If this caused the plan to hit 0, promote queued plan
         await _checkProgression(clientId);
+      } else {
+        // No active plan: adjust bonus for present dates added/removed.
+        int bonusDelta = 0;
+        for (final entry in dateStatusMap.entries) {
+          final oldStatus = oldStatusMap[entry.key];
+          final newStatus = entry.value;
+          if (oldStatus == null && newStatus == 'present') {
+            bonusDelta -= 1;
+          } else if (oldStatus == 'present' &&
+              (newStatus.isEmpty || newStatus == 'absent')) {
+            bonusDelta += 1;
+          }
+        }
+        if (bonusDelta != 0) {
+          await adjustBonus(clientId, bonusDelta);
+        }
       }
     }
 
@@ -507,7 +544,7 @@ class AppState extends ChangeNotifier {
     await _db.updatePlan(promoted);
   }
 
-  void _renumberQueue(int clientId) {
+  Future<void> _renumberQueue(int clientId) async {
     final queue = queuedPlansForClient(clientId);
     for (int i = 0; i < queue.length; i++) {
       final p = queue[i];
@@ -517,7 +554,7 @@ class AppState extends ChangeNotifier {
       if (idx != -1) {
         final updated = p.copyWith(queueOrder: newOrder);
         plans[idx] = updated;
-        _db.updatePlan(updated);
+        await _db.updatePlan(updated);
       }
     }
   }
@@ -526,7 +563,13 @@ class AppState extends ChangeNotifier {
   /// Called once on first launch. Safe to call again — it does nothing
   /// if any client already exists.
   Future<void> seedIfEmpty() async {
-    if (clients.isNotEmpty) return;
+    if (clients.isNotEmpty ||
+        templates.isNotEmpty ||
+        plans.isNotEmpty ||
+        attendance.isNotEmpty ||
+        tags.isNotEmpty) {
+      return;
+    }
 
     // ─── Tags ───
     await addTag(const Tag(emoji: '🏋️', name: 'باشگاه'));
@@ -536,8 +579,14 @@ class AppState extends ChangeNotifier {
     await addTag(const Tag(emoji: '🧘', name: 'اصلاحی'));
 
     // Look up their ids
-    int tagId(String name) =>
-        tags.firstWhere((t) => t.name == name).id!;
+    int tagId(String name) {
+      final t = tags.firstWhere((x) => x.name == name,
+          orElse: () => throw StateError('tag missing: $name'));
+      if (t.id == null) {
+        throw StateError('tag has no id: $name');
+      }
+      return t.id!;
+    }
 
     // ─── Templates ───
     await addTemplate(const PlanTemplate(
@@ -549,8 +598,14 @@ class AppState extends ChangeNotifier {
     await addTemplate(const PlanTemplate(
         name: 'برنامه اصلاحی ۶ جلسه‌ای', sessions: 6, days: 30));
 
-    int templateId(String name) =>
-        templates.firstWhere((t) => t.name == name).id!;
+    int templateId(String name) {
+      final t = templates.firstWhere((x) => x.name == name,
+          orElse: () => throw StateError('template missing: $name'));
+      if (t.id == null) {
+        throw StateError('template has no id: $name');
+      }
+      return t.id!;
+    }
 
     // ─── Clients ───
     await addClient(Client(
@@ -599,8 +654,14 @@ class AppState extends ChangeNotifier {
     ));
 
     // Helper to get client by name
-    int clientId(String name) =>
-        clients.firstWhere((c) => c.name == name).id!;
+    int clientId(String name) {
+      final c = clients.firstWhere((x) => x.name == name,
+          orElse: () => throw StateError('client missing: $name'));
+      if (c.id == null) {
+        throw StateError('client has no id: $name');
+      }
+      return c.id!;
+    }
 
     final today = jc.JalaliDate.today().toString();
     // '۱۴۰۵/۰۶/۲۱' — matches the mockup

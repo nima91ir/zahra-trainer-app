@@ -19,9 +19,7 @@ class ZahraTrainerApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
-      create: (_) => AppState()
-      ..loadAll()
-      ..seedIfEmpty(),
+      create: (_) => AppState()..init(),
       child: MaterialApp(
         title: 'Work Tracker',
         debugShowCheckedModeBanner: false,

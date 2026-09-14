@@ -1,17 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
 import '../data/models/client.dart';
 import '../data/models/client_plan.dart';
+import '../state/app_state.dart';
 import '../theme/app_tokens.dart';
 import '../utils/persian_numbers.dart';
 import 'client_avatar.dart';
-import 'status_badge.dart';
 
-/// A single client row in the clients list.
 class ClientCard extends StatelessWidget {
   final Client client;
   final ClientPlan? activePlan;
   final bool hasAttendedToday;
-  final String? todayStatus; // 'present' | 'absent' | null
+  final String? todayStatus;
   final VoidCallback onTap;
   final VoidCallback? onMarkPresent;
   final VoidCallback? onMarkAbsent;
@@ -31,6 +32,8 @@ class ClientCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final state = context.watch<AppState>();
+    final tags = state.tagsForClient(client);
     final plan = activePlan;
     final remainingSessions = plan?.remaining ?? 0;
     final remainingDays = plan?.days ?? 0;
@@ -65,11 +68,11 @@ class ClientCard extends StatelessWidget {
               Row(
                 children: [
                   ClientAvatar(name: client.name, size: 40),
-                  const SizedBox(width: 12),
+                  SizedBox(width: 12),
                   Expanded(
                     child: Text(
                       client.name,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontFamily: 'Vazir',
                         fontSize: 15,
                         fontWeight: FontWeight.w800,
@@ -77,29 +80,61 @@ class ClientCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                  const Icon(Icons.chevron_left,
+                  Icon(Icons.chevron_left,
                       color: AppTokens.onSurfaceVar, size: 18),
                 ],
               ),
-              const SizedBox(height: 10),
+              SizedBox(height: 10),
 
-              // Plan badge row
-              Row(
-                children: [
-                  if (plan != null)
-                    StatusBadge(
-                      text: plan.isFrozen ? 'یخ‌زده' : 'فعال',
-                      variant: plan.isFrozen
-                          ? BadgeVariant.amber
-                          : BadgeVariant.primary,
-                    )
-                  else
-                    const StatusBadge(
-                        text: 'بدون برنامه',
-                        variant: BadgeVariant.neutral),
-                ],
+            // Tags row
+            if (tags.isNotEmpty) ...[
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: tags
+                    .map((t) => Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: AppTokens.primary.withValues(alpha: 0.14),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: Text(
+                            t.name, // Remove emoji from tag pill
+                            style: TextStyle(
+                              fontFamily: 'Vazir',
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: AppTokens.primary,
+                            ),
+                          ),
+                        ))
+                    .toList(),
               ),
-              const SizedBox(height: 10),
+              SizedBox(height: 10),
+            ],
+
+              // Note
+              if (client.note.isNotEmpty) ...[
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppTokens.background,
+                    borderRadius: BorderRadius.circular(AppTokens.rSm),
+                  ),
+                  child: Text(
+                    client.note,
+                    style: TextStyle(
+                      fontFamily: 'Vazir',
+                      fontSize: 11.5,
+                      color: AppTokens.onSurfaceVar,
+                      height: 1.7,
+                    ),
+                  ),
+                ),
+                SizedBox(height: 10),
+              ],
 
               // Stats: remaining days | remaining sessions
               Row(
@@ -125,12 +160,12 @@ class ClientCard extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 10),
+              SizedBox(height: 10),
 
               // Attendance row
               Container(
                 padding: const EdgeInsets.only(top: 10),
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   border: Border(
                     top: BorderSide(color: AppTokens.outlineVariant),
                   ),
@@ -138,7 +173,7 @@ class ClientCard extends StatelessWidget {
                 child: hasAttendedToday
                     ? Row(
                         children: [
-                          const Text(
+                          Text(
                             'حضور امروز:',
                             style: TextStyle(
                               fontFamily: 'Vazir',
@@ -150,20 +185,33 @@ class ClientCard extends StatelessWidget {
                           const Spacer(),
                           GestureDetector(
                             onTap: onUndoAttendance,
-                            child: StatusBadge(
-                              text: todayStatus == 'present'
-                                  ? 'حاضر ×'
-                                  : 'غایب ×',
-                              variant: todayStatus == 'present'
-                                  ? BadgeVariant.green
-                                  : BadgeVariant.red,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 11, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: todayStatus == 'present'
+                                    ? AppTokens.successSoft
+                                    : AppTokens.errorSoft,
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                              child: Text(
+                                todayStatus == 'present' ? 'حاضر ×' : 'غایب ×',
+                                style: TextStyle(
+                                  fontFamily: 'Vazir',
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: todayStatus == 'present'
+                                      ? AppTokens.success
+                                      : AppTokens.error,
+                                ),
+                              ),
                             ),
                           ),
                         ],
                       )
                     : Row(
                         children: [
-                          const Text(
+                          Text(
                             'حضور امروز:',
                             style: TextStyle(
                               fontFamily: 'Vazir',
@@ -179,7 +227,7 @@ class ClientCard extends StatelessWidget {
                             bg: AppTokens.successSoft,
                             fg: AppTokens.success,
                           ),
-                          const SizedBox(width: 6),
+                          SizedBox(width: 6),
                           _PillButton(
                             label: 'غایب',
                             onTap: onMarkAbsent,
@@ -192,10 +240,22 @@ class ClientCard extends StatelessWidget {
 
               // Bonus badge
               if (client.bonusSessions > 0) ...[
-                const SizedBox(height: 8),
-                StatusBadge(
-                  text: '+${fa(client.bonusSessions)} جلسه اضافه',
-                  variant: BadgeVariant.primary,
+                SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppTokens.primary.withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    '+${fa(client.bonusSessions)} جلسه اضافه',
+                    style: TextStyle(
+                      fontFamily: 'Vazir',
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: AppTokens.primary,
+                    ),
+                  ),
                 ),
               ],
             ],
@@ -223,14 +283,14 @@ class _StatCell extends StatelessWidget {
       children: [
         Text(
           label,
-          style: const TextStyle(
+          style: TextStyle(
             fontFamily: 'Vazir',
             fontSize: 11,
             fontWeight: FontWeight.w500,
             color: AppTokens.onSurfaceVar,
           ),
         ),
-        const SizedBox(height: 2),
+        SizedBox(height: 2),
         Text(
           value,
           style: TextStyle(

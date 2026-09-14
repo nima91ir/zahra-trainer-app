@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../screens/tags/tags_screen.dart';
 import '../state/app_state.dart';
 import '../theme/app_tokens.dart';
 
@@ -49,24 +50,24 @@ class _SettingsSheetState extends State<_SettingsSheet> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text(
+        title: Text(
           'پاک کردن همه داده‌ها',
           style: TextStyle(
               fontFamily: 'Vazir', fontWeight: FontWeight.w800),
         ),
-        content: const Text(
+        content: Text(
           'همه کلاینت‌ها، برنامه‌ها، قالب‌ها و سوابق حضور پاک می‌شوند. این عملیات قابل بازگشت نیست.',
           style: TextStyle(fontFamily: 'Vazir', height: 1.8),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('لغو',
+            child: Text('لغو',
                 style: TextStyle(fontFamily: 'Vazir')),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text(
+            child: Text(
               'پاک کن',
               style: TextStyle(
                 fontFamily: 'Vazir',
@@ -109,8 +110,8 @@ class _SettingsSheetState extends State<_SettingsSheet> {
                   ),
                 ),
               ),
-              const SizedBox(height: 16),
-              const Center(
+              SizedBox(height: 16),
+              Center(
                 child: Text(
                   'تنظیمات',
                   style: TextStyle(
@@ -121,10 +122,10 @@ class _SettingsSheetState extends State<_SettingsSheet> {
                   ),
                 ),
               ),
-              const SizedBox(height: 20),
+              SizedBox(height: 20),
 
               // Name input
-              const Text(
+              Text(
                 'نام شما (برای پیام خوش‌آمد)',
                 style: TextStyle(
                   fontFamily: 'Vazir',
@@ -133,17 +134,34 @@ class _SettingsSheetState extends State<_SettingsSheet> {
                   color: AppTokens.onSurfaceVar,
                 ),
               ),
-              const SizedBox(height: 6),
+              SizedBox(height: 6),
               TextField(
                 controller: _nameController,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   hintText: 'مثلاً زهرا',
                 ),
                 onChanged: (v) {
                   context.read<AppState>().setUserName(v);
                 },
               ),
-              const SizedBox(height: 20),
+              SizedBox(height: 20),
+
+              // Tags
+              _MenuItem(
+                icon: Icons.label_outline,
+                label: 'برچسب‌ها',
+                hint: 'گروه‌بندی کلاینت‌ها',
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const TagsScreen(),
+                    ),
+                  );
+                },
+              ),
+              SizedBox(height: 4),
 
               // About
               _MenuItem(
@@ -172,13 +190,13 @@ class _SettingsSheetState extends State<_SettingsSheet> {
     showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text(
+        title: Text(
           'Work Tracker',
           textAlign: TextAlign.center,
           style: TextStyle(
               fontFamily: 'Vazir', fontWeight: FontWeight.w800),
         ),
-        content: const Column(
+        content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
@@ -211,7 +229,7 @@ class _SettingsSheetState extends State<_SettingsSheet> {
           Center(
             child: TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('بستن',
+              child: Text('بستن',
                   style: TextStyle(fontFamily: 'Vazir')),
             ),
           ),
@@ -266,7 +284,7 @@ class _MenuItem extends StatelessWidget {
                 alignment: Alignment.center,
                 child: Icon(icon, size: 20, color: iconColor),
               ),
-              const SizedBox(width: 14),
+              SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -280,10 +298,10 @@ class _MenuItem extends StatelessWidget {
                         color: labelColor,
                       ),
                     ),
-                    const SizedBox(height: 2),
+                    SizedBox(height: 2),
                     Text(
                       hint,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontFamily: 'Vazir',
                         fontSize: 11,
                         fontWeight: FontWeight.w500,
@@ -293,7 +311,7 @@ class _MenuItem extends StatelessWidget {
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_left,
+              Icon(Icons.chevron_left,
                   size: 18, color: AppTokens.onSurfaceVar),
             ],
           ),

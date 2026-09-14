@@ -4,12 +4,12 @@ import 'package:provider/provider.dart';
 import '../../data/models/client.dart';
 import '../../data/models/client_plan.dart';
 import '../../state/app_state.dart';
+import '../../screens/add_edit_client/add_edit_client_screen.dart';
 import '../../screens/add_plan/add_plan_screen.dart';
 import '../../screens/past_attendance/past_attendance_screen.dart';
 import '../../utils/jalali_calendar.dart' as jc;
 import '../../utils/persian_numbers.dart';
 import '../../widgets/client_avatar.dart';
-import '../../widgets/status_badge.dart';
 import '../../theme/app_tokens.dart';
 
 class ClientDetailScreen extends StatelessWidget {
@@ -24,8 +24,8 @@ class ClientDetailScreen extends StatelessWidget {
 
     if (client == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('جزئیات')),
-        body: const Center(
+        appBar: AppBar(title: Text('جزئیات')),
+        body: Center(
           child: Text(
             'کلاینت پیدا نشد',
             style: TextStyle(fontFamily: 'Vazir'),
@@ -40,18 +40,20 @@ class ClientDetailScreen extends StatelessWidget {
         .where((a) => a.clientId == clientId && a.date == todayStr)
         .toList();
     final hasAttended = todayRecords.isNotEmpty;
-    final todayStatus =
-        hasAttended ? todayRecords.first.status : null;
+    final todayStatus = hasAttended ? todayRecords.first.status : null;
 
     return Scaffold(
       appBar: AppBar(
         title: Text(client.name),
         actions: [
           IconButton(
-            icon: const Icon(Icons.edit_outlined, size: 22),
+            icon: Icon(Icons.edit_outlined, size: 22),
             onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('ویرایش — به‌زودی')),
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => AddEditClientScreen(existing: client),
+                ),
               );
             },
           ),
@@ -61,29 +63,29 @@ class ClientDetailScreen extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
         children: [
           _ProfileCard(client: client, state: state),
-          const SizedBox(height: 14),
+          SizedBox(height: 14),
           _AttendanceTodayCard(
             clientId: clientId,
             hasAttended: hasAttended,
             status: todayStatus,
-            onMark: (s) =>
-                state.markAttendance(clientId, s, todayStr),
-            onUndo: () =>
-                state.undoAttendance(clientId, todayStr),
+            onMark: (s) => state.markAttendance(clientId, s, todayStr),
+            onUndo: () => state.undoAttendance(clientId, todayStr),
           ),
           if (activePlan != null) ...[
-            const SizedBox(height: 14),
+            SizedBox(height: 14),
             _ActivePlanCard(plan: activePlan),
           ],
-          const SizedBox(height: 14),
+          SizedBox(height: 14),
+          _QueuedPlansSection(clientId: clientId),
+          SizedBox(height: 14),
           _AddPlanButton(clientId: clientId),
-          const SizedBox(height: 14),
+          SizedBox(height: 14),
           _BonusSection(client: client),
-          const SizedBox(height: 20),
+          SizedBox(height: 20),
           _AttendanceHistorySection(clientId: clientId),
-          const SizedBox(height: 20),
+          SizedBox(height: 20),
           _PastPlansSection(clientId: clientId),
-          const SizedBox(height: 20),
+          SizedBox(height: 20),
           _DeleteClientButton(client: client),
         ],
       ),
@@ -92,7 +94,6 @@ class ClientDetailScreen extends StatelessWidget {
 }
 
 // ═══════════════ Profile ═══════════════
-
 class _ProfileCard extends StatelessWidget {
   final Client client;
   final AppState state;
@@ -111,38 +112,49 @@ class _ProfileCard extends StatelessWidget {
       child: Column(
         children: [
           ClientAvatar(name: client.name, size: 80),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           Text(
             client.name,
-            style: const TextStyle(
+            style: TextStyle(
               fontFamily: 'Vazir',
               fontSize: 19,
               fontWeight: FontWeight.w900,
               color: AppTokens.onSurface,
             ),
           ),
-          if (tags.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              alignment: WrapAlignment.center,
-              children: tags
-                  .map((t) => StatusBadge(
-                        text: '${t.emoji} ${t.name}',
-                        variant: BadgeVariant.primary,
-                      ))
-                  .toList(),
-            ),
-          ],
-          if (client.contact != null &&
-              client.contact!.isNotEmpty) ...[
-            const SizedBox(height: 10),
+            if (tags.isNotEmpty) ...[
+              SizedBox(height: 8),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                alignment: WrapAlignment.center,
+                children: tags
+                    .map((t) => Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: AppTokens.primary.withValues(alpha: 0.14),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: Text(
+                            t.name, // Remove emoji from tags in profile
+                            style: TextStyle(
+                              fontFamily: 'Vazir',
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: AppTokens.primary,
+                            ),
+                          ),
+                        ))
+                    .toList(),
+              ),
+            ],
+          if (client.contact != null && client.contact!.isNotEmpty) ...[
+            SizedBox(height: 10),
             Directionality(
               textDirection: TextDirection.ltr,
               child: Text(
                 client.contact!,
-                style: const TextStyle(
+                style: TextStyle(
                   fontFamily: 'Vazir',
                   fontSize: 12.5,
                   fontWeight: FontWeight.w500,
@@ -152,10 +164,10 @@ class _ProfileCard extends StatelessWidget {
             ),
           ],
           if (client.note.isNotEmpty) ...[
-            const SizedBox(height: 10),
+            SizedBox(height: 10),
             Container(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 14, vertical: 10),
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
                 color: AppTokens.background,
                 borderRadius: BorderRadius.circular(AppTokens.rSm),
@@ -163,7 +175,7 @@ class _ProfileCard extends StatelessWidget {
               child: Text(
                 client.note,
                 textAlign: TextAlign.center,
-                style: const TextStyle(
+                style: TextStyle(
                   fontFamily: 'Vazir',
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
@@ -180,7 +192,6 @@ class _ProfileCard extends StatelessWidget {
 }
 
 // ═══════════════ Attendance Today ═══════════════
-
 class _AttendanceTodayCard extends StatelessWidget {
   final int clientId;
   final bool hasAttended;
@@ -208,7 +219,7 @@ class _AttendanceTodayCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'حضور امروز',
             style: TextStyle(
               fontFamily: 'Vazir',
@@ -217,20 +228,30 @@ class _AttendanceTodayCard extends StatelessWidget {
               color: AppTokens.onSurface,
             ),
           ),
-          const SizedBox(height: 10),
+          SizedBox(height: 10),
           if (hasAttended)
             Row(
               children: [
-                StatusBadge(
-                  text: status == 'present' ? 'حاضر' : 'غایب',
-                  variant: status == 'present'
-                      ? BadgeVariant.green
-                      : BadgeVariant.red,
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: status == 'present' ? AppTokens.successSoft : AppTokens.errorSoft,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    status == 'present' ? 'حاضر' : 'غایب',
+                    style: TextStyle(
+                      fontFamily: 'Vazir',
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: status == 'present' ? AppTokens.success : AppTokens.error,
+                    ),
+                  ),
                 ),
                 const Spacer(),
                 TextButton(
                   onPressed: onUndo,
-                  child: const Text(
+                  child: Text(
                     'واگرد',
                     style: TextStyle(
                       fontFamily: 'Vazir',
@@ -252,7 +273,7 @@ class _AttendanceTodayCard extends StatelessWidget {
                     onTap: () => onMark('present'),
                   ),
                 ),
-                const SizedBox(width: 8),
+                SizedBox(width: 8),
                 Expanded(
                   child: _BigPill(
                     label: 'غایب',
@@ -274,12 +295,7 @@ class _BigPill extends StatelessWidget {
   final Color bg;
   final Color fg;
   final VoidCallback onTap;
-  const _BigPill({
-    required this.label,
-    required this.bg,
-    required this.fg,
-    required this.onTap,
-  });
+  const _BigPill({required this.label, required this.bg, required this.fg, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -309,7 +325,6 @@ class _BigPill extends StatelessWidget {
 }
 
 // ═══════════════ Active Plan ═══════════════
-
 class _ActivePlanCard extends StatelessWidget {
   final ClientPlan plan;
   const _ActivePlanCard({required this.plan});
@@ -321,6 +336,11 @@ class _ActivePlanCard extends StatelessWidget {
     final sessionsColor = plan.remaining > 5
         ? AppTokens.success
         : plan.remaining >= 2
+            ? AppTokens.warning
+            : AppTokens.error;
+    final daysColor = plan.days > 14
+        ? AppTokens.success
+        : plan.days >= 7
             ? AppTokens.warning
             : AppTokens.error;
 
@@ -339,7 +359,7 @@ class _ActivePlanCard extends StatelessWidget {
               Expanded(
                 child: Text(
                   template?.name ?? 'برنامه',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontFamily: 'Vazir',
                     fontSize: 14.5,
                     fontWeight: FontWeight.w800,
@@ -347,74 +367,132 @@ class _ActivePlanCard extends StatelessWidget {
                   ),
                 ),
               ),
-              StatusBadge(
-                text: plan.isFrozen ? 'یخ‌زده' : 'فعال',
-                variant: plan.isFrozen
-                    ? BadgeVariant.amber
-                    : BadgeVariant.primary,
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+                decoration: BoxDecoration(
+                  color: plan.isFrozen ? AppTokens.warningSoft : AppTokens.primary.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  plan.isFrozen ? 'یخ‌زده' : 'فعال',
+                  style: TextStyle(
+                    fontFamily: 'Vazir',
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: plan.isFrozen ? AppTokens.warning : AppTokens.primary,
+                  ),
+                ),
+              ),
+              SizedBox(width: 8),
+              IconButton(
+                icon: Icon(Icons.delete_outline, size: 18),
+                color: AppTokens.error,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                onPressed: () => _confirmDeletePlan(context, plan),
               ),
             ],
           ),
-          const SizedBox(height: 14),
-            Container(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 14, vertical: 12),
-              decoration: BoxDecoration(
-                color: AppTokens.background,
-                borderRadius: BorderRadius.circular(AppTokens.rMd),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: _PlanStat(
-                      label: 'جلسات باقی‌مانده',
-                      value: fa(plan.remaining),
-                      color: sessionsColor,
-                    ),
-                  ),
-                  Container(
-                    width: 1,
-                    height: 34,
-                    color: AppTokens.outlineVariant,
-                  ),
-                  Expanded(
-                    child: _PlanStat(
-                      label: 'مدت اعتبار',
-                      value: '${fa(plan.days)} روز',
-                      color: AppTokens.onSurface,
-                    ),
-                  ),
-                ],
-              ),
+          SizedBox(height: 14),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: AppTokens.background,
+              borderRadius: BorderRadius.circular(AppTokens.rMd),
             ),
-            const SizedBox(height: 12),
-            OutlinedButton.icon(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => PastAttendanceScreen(
-                      clientId: plan.clientId,
-                    ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: _PlanStat(
+                    label: 'جلسات باقی‌مانده',
+                    value: fa(plan.remaining),
+                    color: sessionsColor,
                   ),
-                );
-              },
-              icon: const Icon(Icons.history, size: 18),
-              label: const Text('حضور گذشته'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppTokens.primary,
-                minimumSize: const Size.fromHeight(40),
-                side: const BorderSide(color: AppTokens.primary, width: 1.5),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(AppTokens.rMd),
                 ),
-                textStyle: const TextStyle(
-                  fontFamily: 'Vazir',
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w700,
+                Container(width: 1, height: 34, color: AppTokens.outlineVariant),
+                Expanded(
+                  child: _PlanStat(
+                    label: 'روز باقی‌مانده',
+                    value: '${fa(plan.days)} روز',
+                    color: daysColor,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => PastAttendanceScreen(clientId: plan.clientId),
+                      ),
+                    );
+                  },
+                  icon: Icon(Icons.history, size: 18),
+                  label: Text('حضور گذشته'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppTokens.primary,
+                    minimumSize: const Size.fromHeight(40),
+                    side: BorderSide(color: AppTokens.primary, width: 1.5),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTokens.rMd)),
+                    textStyle: TextStyle(fontFamily: 'Vazir', fontSize: 12.5, fontWeight: FontWeight.w700),
+                  ),
                 ),
               ),
-            ),
+              SizedBox(width: 8),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    if (plan.isFrozen) {
+                      state.unfreezePlan(plan.id!);
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('برنامه باز شد')));
+                    } else {
+                      state.freezePlan(plan.id!);
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('برنامه یخ‌زده شد')));
+                    }
+                  },
+                  icon: Icon(plan.isFrozen ? Icons.lock_open : Icons.ac_unit, size: 18),
+                  label: Text(plan.isFrozen ? 'باز کردن' : 'یخ زدن'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppTokens.primary,
+                    minimumSize: const Size.fromHeight(40),
+                    side: BorderSide(color: AppTokens.primary, width: 1.5),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTokens.rMd)),
+                    textStyle: TextStyle(fontFamily: 'Vazir', fontSize: 12.5, fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _confirmDeletePlan(BuildContext context, ClientPlan plan) {
+    final state = context.read<AppState>();
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('حذف برنامه', style: TextStyle(fontFamily: 'Vazir', fontWeight: FontWeight.w800)),
+        content: Text('آیا از حذف این برنامه اطمینان داری؟', style: TextStyle(fontFamily: 'Vazir', height: 1.8)),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text('لغو', style: TextStyle(fontFamily: 'Vazir'))),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              if (plan.id != null) {
+                state.deletePlan(plan.id!);
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('برنامه حذف شد')));
+              }
+            },
+            child: Text('حذف', style: TextStyle(fontFamily: 'Vazir', color: AppTokens.error, fontWeight: FontWeight.w700)),
+          ),
         ],
       ),
     );
@@ -425,11 +503,7 @@ class _PlanStat extends StatelessWidget {
   final String label;
   final String value;
   final Color color;
-  const _PlanStat({
-    required this.label,
-    required this.value,
-    required this.color,
-  });
+  const _PlanStat({required this.label, required this.value, required this.color});
 
   @override
   Widget build(BuildContext context) {
@@ -438,31 +512,115 @@ class _PlanStat extends StatelessWidget {
       children: [
         Text(
           label,
-          style: const TextStyle(
-            fontFamily: 'Vazir',
-            fontSize: 11,
-            fontWeight: FontWeight.w500,
-            color: AppTokens.onSurfaceVar,
-          ),
+          style: TextStyle(fontFamily: 'Vazir', fontSize: 11, fontWeight: FontWeight.w500, color: AppTokens.onSurfaceVar),
         ),
-        const SizedBox(height: 3),
+        SizedBox(height: 3),
         Text(
           value,
-          style: TextStyle(
-            fontFamily: 'Vazir',
-            fontSize: 20,
-            fontWeight: FontWeight.w900,
-            color: color,
-            height: 1,
-          ),
+          style: TextStyle(fontFamily: 'Vazir', fontSize: 20, fontWeight: FontWeight.w900, color: color, height: 1),
         ),
       ],
     );
   }
 }
 
-// ═══════════════ Add Plan Button ═══════════════
+// ═══════════════ Queued Plans ═══════════════
+class _QueuedPlansSection extends StatelessWidget {
+  final int clientId;
+  const _QueuedPlansSection({required this.clientId});
 
+  @override
+  Widget build(BuildContext context) {
+    final state = context.watch<AppState>();
+    final queuedPlans = state.queuedPlansForClient(clientId);
+    if (queuedPlans.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: 4),
+          child: Text(
+            'در صف',
+            style: TextStyle(fontFamily: 'Vazir', fontSize: 14, fontWeight: FontWeight.w800, color: AppTokens.onSurface),
+          ),
+        ),
+        SizedBox(height: 10),
+        ...queuedPlans.map((p) {
+          final template = state.templateById(p.templateId);
+          return Container(
+            margin: const EdgeInsets.only(bottom: 10),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: AppTokens.surface,
+              borderRadius: BorderRadius.circular(AppTokens.rMd),
+              border: Border.all(color: AppTokens.primary.withValues(alpha: 0.4)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        template?.name ?? 'برنامه',
+                        style: TextStyle(fontFamily: 'Vazir', fontSize: 14.5, fontWeight: FontWeight.w800, color: AppTokens.onSurface),
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: AppTokens.primary.withValues(alpha: 0.14),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        'صف ${fa(p.queueOrder ?? 1)}',
+                        style: TextStyle(fontFamily: 'Vazir', fontSize: 11, fontWeight: FontWeight.w700, color: AppTokens.primaryDark),
+                      ),
+                    ),
+                    SizedBox(width: 8),
+                    IconButton(
+                      icon: Icon(Icons.delete_outline, size: 18),
+                      color: AppTokens.error,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      onPressed: () {
+                        if (p.id != null) state.deletePlan(p.id!);
+                      },
+                    ),
+                  ],
+                ),
+                SizedBox(height: 8),
+                Text(
+                  'بعد از تمام شدن برنامه فعلی، خودکار فعال می‌شود.',
+                  style: TextStyle(fontFamily: 'Vazir', fontSize: 12, color: AppTokens.onSurfaceVar, height: 1.7),
+                ),
+                SizedBox(height: 10),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  decoration: BoxDecoration(color: AppTokens.background, borderRadius: BorderRadius.circular(AppTokens.rMd)),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: _PlanStat(label: 'جلسات', value: fa(p.sessions), color: AppTokens.onSurface),
+                      ),
+                      Container(width: 1, height: 34, color: AppTokens.outlineVariant),
+                      Expanded(
+                        child: _PlanStat(label: 'مدت', value: '${fa(p.days)} روز', color: AppTokens.onSurface),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          );
+        }),
+      ],
+    );
+  }
+}
+
+// ═══════════════ Add Plan Button ═══════════════
 class _AddPlanButton extends StatelessWidget {
   final int clientId;
   const _AddPlanButton({required this.clientId});
@@ -473,32 +631,23 @@ class _AddPlanButton extends StatelessWidget {
       onPressed: () {
         Navigator.push(
           context,
-          MaterialPageRoute(
-            builder: (_) => AddPlanScreen(clientId: clientId),
-          ),
+          MaterialPageRoute(builder: (_) => AddPlanScreen(clientId: clientId)),
         );
       },
-      icon: const Icon(Icons.add, size: 18),
-      label: const Text('افزودن برنامه جدید'),
+      icon: Icon(Icons.add, size: 18),
+      label: Text('افزودن برنامه جدید'),
       style: OutlinedButton.styleFrom(
         foregroundColor: AppTokens.primary,
         minimumSize: const Size.fromHeight(48),
-        side: const BorderSide(color: AppTokens.primary, width: 1.5),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppTokens.rLg),
-        ),
-        textStyle: const TextStyle(
-          fontFamily: 'Vazir',
-          fontSize: 14,
-          fontWeight: FontWeight.w700,
-        ),
+        side: BorderSide(color: AppTokens.primary, width: 1.5),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTokens.rLg)),
+        textStyle: TextStyle(fontFamily: 'Vazir', fontSize: 14, fontWeight: FontWeight.w700),
       ),
     );
   }
 }
 
 // ═══════════════ Bonus Section ═══════════════
-
 class _BonusSection extends StatelessWidget {
   final Client client;
   const _BonusSection({required this.client});
@@ -518,44 +667,23 @@ class _BonusSection extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Expanded(
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'جلسات اضافه',
-                      style: TextStyle(
-                        fontFamily: 'Vazir',
-                        fontSize: 13,
-                        fontWeight: FontWeight.w800,
-                        color: AppTokens.onSurface,
-                      ),
-                    ),
+                    Text('جلسات اضافه', style: TextStyle(fontFamily: 'Vazir', fontSize: 13, fontWeight: FontWeight.w800, color: AppTokens.onSurface)),
                     SizedBox(height: 2),
-                    Text(
-                      'حتی بعد از اتمام برنامه قابل استفاده است',
-                      style: TextStyle(
-                        fontFamily: 'Vazir',
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w500,
-                        color: AppTokens.onSurfaceVar,
-                      ),
-                    ),
+                    Text('حتی بعد از اتمام برنامه قابل استفاده است', style: TextStyle(fontFamily: 'Vazir', fontSize: 11.5, fontWeight: FontWeight.w500, color: AppTokens.onSurfaceVar)),
                   ],
                 ),
               ),
               Text(
                 fa(client.bonusSessions),
-                style: const TextStyle(
-                  fontFamily: 'Vazir',
-                  fontSize: 22,
-                  fontWeight: FontWeight.w900,
-                  color: AppTokens.primary,
-                ),
+                style: TextStyle(fontFamily: 'Vazir', fontSize: 22, fontWeight: FontWeight.w900, color: AppTokens.primary),
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           Row(
             children: [
               Expanded(
@@ -564,42 +692,26 @@ class _BonusSection extends StatelessWidget {
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AppTokens.primary,
                     minimumSize: const Size.fromHeight(40),
-                    side: const BorderSide(color: AppTokens.outlineVariant),
-                    shape: RoundedRectangleBorder(
-                      borderRadius:
-                          BorderRadius.circular(AppTokens.rMd),
-                    ),
-                    textStyle: const TextStyle(
-                      fontFamily: 'Vazir',
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w700,
-                    ),
+                    side: BorderSide(color: AppTokens.outlineVariant),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTokens.rMd)),
+                    textStyle: TextStyle(fontFamily: 'Vazir', fontSize: 12.5, fontWeight: FontWeight.w700),
                   ),
-                  child: const Text('+ افزودن'),
+                  child: Text('+ افزودن'),
                 ),
               ),
               if (client.bonusSessions > 0) ...[
-                const SizedBox(width: 8),
+                SizedBox(width: 8),
                 Expanded(
                   child: OutlinedButton(
-                    onPressed: () =>
-                        state.adjustBonus(client.id!, -1),
+                    onPressed: () => state.adjustBonus(client.id!, -1),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AppTokens.primary,
                       minimumSize: const Size.fromHeight(40),
-                      side: const BorderSide(
-                          color: AppTokens.outlineVariant),
-                      shape: RoundedRectangleBorder(
-                        borderRadius:
-                            BorderRadius.circular(AppTokens.rMd),
-                      ),
-                      textStyle: const TextStyle(
-                        fontFamily: 'Vazir',
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w700,
-                      ),
+                      side: BorderSide(color: AppTokens.outlineVariant),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTokens.rMd)),
+                      textStyle: TextStyle(fontFamily: 'Vazir', fontSize: 12.5, fontWeight: FontWeight.w700),
                     ),
-                    child: const Text('- کم کردن'),
+                    child: Text('- کم کردن'),
                   ),
                 ),
               ],
@@ -611,6 +723,7 @@ class _BonusSection extends StatelessWidget {
   }
 }
 
+// ═══════════════ Attendance History ═══════════════
 class _AttendanceHistorySection extends StatelessWidget {
   final int clientId;
   const _AttendanceHistorySection({required this.clientId});
@@ -618,46 +731,25 @@ class _AttendanceHistorySection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
-    final records = state
-        .attendanceForClient(clientId)
-        .toList()
-      ..sort((a, b) => b.date.compareTo(a.date));
+    final records = state.attendanceForClient(clientId).toList()..sort((a, b) => b.date.compareTo(a.date));
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(
+        Padding(
           padding: EdgeInsets.symmetric(horizontal: 4),
-          child: Text(
-            'تاریخچه حضور',
-            style: TextStyle(
-              fontFamily: 'Vazir',
-              fontSize: 14,
-              fontWeight: FontWeight.w800,
-              color: AppTokens.onSurface,
-            ),
-          ),
+          child: Text('تاریخچه حضور', style: TextStyle(fontFamily: 'Vazir', fontSize: 14, fontWeight: FontWeight.w800, color: AppTokens.onSurface)),
         ),
-        const SizedBox(height: 10),
+        SizedBox(height: 10),
         if (records.isEmpty)
-          const Padding(
+          Padding(
             padding: EdgeInsets.all(20),
-            child: Center(
-              child: Text(
-                'هنوز حضوری ثبت نشده',
-                style: TextStyle(
-                  fontFamily: 'Vazir',
-                  fontSize: 12.5,
-                  color: AppTokens.onSurfaceVar,
-                ),
-              ),
-            ),
+            child: Center(child: Text('هنوز حضوری ثبت نشده', style: TextStyle(fontFamily: 'Vazir', fontSize: 12.5, color: AppTokens.onSurfaceVar))),
           )
         else
           ...records.take(8).map((r) => Container(
                 margin: const EdgeInsets.only(bottom: 8),
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 14, vertical: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                 decoration: BoxDecoration(
                   color: AppTokens.surface,
                   borderRadius: BorderRadius.circular(AppTokens.rMd),
@@ -665,25 +757,26 @@ class _AttendanceHistorySection extends StatelessWidget {
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.calendar_today,
-                        size: 16, color: AppTokens.onSurfaceVar),
-                    const SizedBox(width: 10),
+                    Icon(Icons.calendar_today, size: 16, color: AppTokens.onSurfaceVar),
+                    SizedBox(width: 10),
                     Expanded(
+                      child: Text(r.date, style: TextStyle(fontFamily: 'Vazir', fontSize: 13, fontWeight: FontWeight.w700, color: AppTokens.onSurface)),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: r.status == 'present' ? AppTokens.successSoft : AppTokens.errorSoft,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
                       child: Text(
-                        r.date,
-                        style: const TextStyle(
+                        r.status == 'present' ? 'حاضر' : 'غایب',
+                        style: TextStyle(
                           fontFamily: 'Vazir',
-                          fontSize: 13,
+                          fontSize: 11,
                           fontWeight: FontWeight.w700,
-                          color: AppTokens.onSurface,
+                          color: r.status == 'present' ? AppTokens.success : AppTokens.error,
                         ),
                       ),
-                    ),
-                    StatusBadge(
-                      text: r.isPresent ? 'حاضر' : 'غایب',
-                      variant: r.isPresent
-                          ? BadgeVariant.green
-                          : BadgeVariant.red,
                     ),
                   ],
                 ),
@@ -693,6 +786,7 @@ class _AttendanceHistorySection extends StatelessWidget {
   }
 }
 
+// ═══════════════ Past Plans ═══════════════
 class _PastPlansSection extends StatelessWidget {
   final int clientId;
   const _PastPlansSection({required this.clientId});
@@ -700,29 +794,18 @@ class _PastPlansSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
-    final pastPlans = state
-        .plansForClient(clientId)
-        .where((p) => p.status == 'expired')
-        .toList();
+    final pastPlans = state.plansForClient(clientId).where((p) => p.status == 'expired').toList();
 
     if (pastPlans.isEmpty) return const SizedBox.shrink();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(
+        Padding(
           padding: EdgeInsets.symmetric(horizontal: 4),
-          child: Text(
-            'برنامه‌های گذشته',
-            style: TextStyle(
-              fontFamily: 'Vazir',
-              fontSize: 14,
-              fontWeight: FontWeight.w800,
-              color: AppTokens.onSurface,
-            ),
-          ),
+          child: Text('برنامه‌های گذشته', style: TextStyle(fontFamily: 'Vazir', fontSize: 14, fontWeight: FontWeight.w800, color: AppTokens.onSurface)),
         ),
-        const SizedBox(height: 10),
+        SizedBox(height: 10),
         ...pastPlans.map((p) {
           final template = state.templateById(p.templateId);
           return Container(
@@ -738,42 +821,26 @@ class _PastPlansSection extends StatelessWidget {
                 Container(
                   width: 36,
                   height: 36,
-                  decoration: BoxDecoration(
-                    color: AppTokens.background,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+                  decoration: BoxDecoration(color: AppTokens.background, borderRadius: BorderRadius.circular(12)),
                   alignment: Alignment.center,
-                  child: const Icon(Icons.fitness_center,
-                      size: 16, color: AppTokens.onSurfaceVar),
+                  child: Icon(Icons.fitness_center, size: 16, color: AppTokens.onSurfaceVar),
                 ),
-                const SizedBox(width: 12),
+                SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        template?.name ?? 'برنامه',
-                        style: const TextStyle(
-                          fontFamily: 'Vazir',
-                          fontSize: 13,
-                          fontWeight: FontWeight.w800,
-                          color: AppTokens.onSurface,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        'شروع: ${p.startDate ?? '—'}',
-                        style: const TextStyle(
-                          fontFamily: 'Vazir',
-                          fontSize: 11,
-                          color: AppTokens.onSurfaceVar,
-                        ),
-                      ),
+                      Text(template?.name ?? 'برنامه', style: TextStyle(fontFamily: 'Vazir', fontSize: 13, fontWeight: FontWeight.w800, color: AppTokens.onSurface)),
+                      SizedBox(height: 2),
+                      Text('شروع: ${p.startDate ?? '—'}', style: TextStyle(fontFamily: 'Vazir', fontSize: 11, color: AppTokens.onSurfaceVar)),
                     ],
                   ),
                 ),
-                const StatusBadge(
-                    text: 'منقضی', variant: BadgeVariant.red),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+                  decoration: BoxDecoration(color: AppTokens.errorSoft, borderRadius: BorderRadius.circular(999)),
+                  child: Text('منقضی', style: TextStyle(fontFamily: 'Vazir', fontSize: 11, fontWeight: FontWeight.w700, color: AppTokens.error)),
+                ),
               ],
             ),
           );
@@ -783,6 +850,7 @@ class _PastPlansSection extends StatelessWidget {
   }
 }
 
+// ═══════════════ Delete Client Button ═══════════════
 class _DeleteClientButton extends StatelessWidget {
   final Client client;
   const _DeleteClientButton({required this.client});
@@ -791,21 +859,14 @@ class _DeleteClientButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return OutlinedButton.icon(
       onPressed: () => _confirm(context),
-      icon: const Icon(Icons.delete_outline, size: 18),
-      label: const Text('حذف کلاینت'),
+      icon: Icon(Icons.delete_outline, size: 18),
+      label: Text('حذف کلاینت'),
       style: OutlinedButton.styleFrom(
         foregroundColor: AppTokens.error,
         minimumSize: const Size.fromHeight(48),
-        side: BorderSide(
-            color: AppTokens.error.withValues(alpha: 0.35)),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppTokens.rLg),
-        ),
-        textStyle: const TextStyle(
-          fontFamily: 'Vazir',
-          fontSize: 14,
-          fontWeight: FontWeight.w700,
-        ),
+        side: BorderSide(color: AppTokens.error.withValues(alpha: 0.35)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTokens.rLg)),
+        textStyle: TextStyle(fontFamily: 'Vazir', fontSize: 14, fontWeight: FontWeight.w700),
       ),
     );
   }
@@ -816,37 +877,23 @@ class _DeleteClientButton extends StatelessWidget {
     showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text(
-          'حذف کلاینت',
-          style: TextStyle(
-              fontFamily: 'Vazir', fontWeight: FontWeight.w800),
-        ),
+        title: Text('حذف کلاینت', style: TextStyle(fontFamily: 'Vazir', fontWeight: FontWeight.w800)),
         content: Text(
           'آیا از حذف «${client.name}» اطمینان داری؟ تمام برنامه‌ها و سوابق حضور نیز حذف می‌شوند.',
-          style: const TextStyle(fontFamily: 'Vazir', height: 1.8),
+          style: TextStyle(fontFamily: 'Vazir', height: 1.8),
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('لغو',
-                style: TextStyle(fontFamily: 'Vazir')),
-          ),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text('لغو', style: TextStyle(fontFamily: 'Vazir'))),
           TextButton(
             onPressed: () {
               Navigator.pop(ctx);
               if (client.id != null) {
                 state.deleteClient(client.id!);
                 nav.pop();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('کلاینت حذف شد')),
-                );
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('کلاینت حذف شد')));
               }
             },
-            child: const Text('حذف',
-                style: TextStyle(
-                    fontFamily: 'Vazir',
-                    color: AppTokens.error,
-                    fontWeight: FontWeight.w700)),
+            child: Text('حذف', style: TextStyle(fontFamily: 'Vazir', color: AppTokens.error, fontWeight: FontWeight.w700)),
           ),
         ],
       ),

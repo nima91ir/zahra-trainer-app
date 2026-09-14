@@ -1,75 +1,107 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shamsi_date/shamsi_date.dart';
 
 import '../../state/app_state.dart';
 import '../../theme/app_tokens.dart';
 import '../../utils/jalali_calendar.dart' as jc;
 import '../../utils/persian_numbers.dart';
+import '../../widgets/settings_sheet.dart';
 
 class PastAttendanceScreen extends StatefulWidget {
   final int clientId;
   const PastAttendanceScreen({super.key, required this.clientId});
 
   @override
-  State<PastAttendanceScreen> createState() =>
-      _PastAttendanceScreenState();
+  State<PastAttendanceScreen> createState() => _PastAttendanceScreenState();
 }
 
 class _PastAttendanceScreenState extends State<PastAttendanceScreen> {
-  late jc.JalaliDate _viewMonth;
-  final Map<String, String> _draft = {};
+  late int _viewYear;
+  late int _viewMonth;
+  final Map<String, String> _draftAttendance = {};
+  String? _selectedDate;
+
+  static const List<String> _dows = ['ش', 'ی', 'د', 'س', 'چ', 'پ', 'ج'];
 
   @override
   void initState() {
     super.initState();
-    final today = jc.JalaliDate.today();
-    _viewMonth = jc.JalaliDate(today.year, today.month, 1);
+    final today = Jalali.now();
+    _viewYear = today.year;
+    _viewMonth = today.month;
+    _loadDraft();
   }
 
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // Seed the draft from the current database state, only once.
-    if (_draft.isEmpty) {
-      final state = context.read<AppState>();
-      for (final rec in state.attendanceForClient(widget.clientId)) {
-        _draft[rec.date] = rec.status;
-      }
+  void _loadDraft() {
+    final state = context.read<AppState>();
+    final records = state.attendanceForClient(widget.clientId);
+    for (final rec in records) {
+      _draftAttendance[rec.date] = rec.status;
     }
   }
 
-  void _toggleDay(String dateStr) {
+  void _toggleDay(String date) {
+    final normalized = faToEn(date);
+    final parts = normalized.split('/');
+    if (parts.length == 3) {
+      final year = int.tryParse(parts[0]);
+      final month = int.tryParse(parts[1]);
+      final day = int.tryParse(parts[2]);
+      if (year != null && month != null && day != null) {
+        final today = Jalali.now();
+        if (year > today.year ||
+            (year == today.year && month > today.month) ||
+            (year == today.year && month == today.month && day > today.day)) {
+          return;
+        }
+      }
+    }
+
     setState(() {
-      final current = _draft[dateStr];
+      _selectedDate = date;
+      final current = _draftAttendance[date];
       if (current == null) {
-        _draft[dateStr] = 'present';
+        _draftAttendance[date] = 'present';
       } else if (current == 'present') {
-        _draft[dateStr] = 'absent';
+        _draftAttendance[date] = 'absent';
       } else {
-        _draft.remove(dateStr);
+        _draftAttendance.remove(date);
       }
     });
   }
 
   Future<void> _save() async {
     final state = context.read<AppState>();
-    final nav = Navigator.of(context);
-    await state.replaceAttendance(widget.clientId, _draft);
+    await state.replaceAttendance(widget.clientId, _draftAttendance);
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('ذخیره شد',
-              style: TextStyle(fontFamily: 'Vazir')),
-        ),
+        const SnackBar(content: Text('تاریخچه حضور ذخیره شد', style: TextStyle(fontFamily: 'Vazir'))),
       );
-      nav.pop();
+      Navigator.pop(context);
     }
   }
 
-  String _dateStr(int day) {
-    final m = _viewMonth.month.toString().padLeft(2, '0');
-    final d = day.toString().padLeft(2, '0');
-    return fa('${_viewMonth.year}/$m/$d');
+  void _prevMonth() {
+    setState(() {
+      _viewMonth--;
+      if (_viewMonth < 1) {
+        _viewMonth = 12;
+        _viewYear--;
+      }
+      _selectedDate = null;
+    });
+  }
+
+  void _nextMonth() {
+    setState(() {
+      _viewMonth++;
+      if (_viewMonth > 12) {
+        _viewMonth = 1;
+        _viewYear++;
+      }
+      _selectedDate = null;
+    });
   }
 
   @override
@@ -77,152 +109,95 @@ class _PastAttendanceScreenState extends State<PastAttendanceScreen> {
     final state = context.watch<AppState>();
     final client = state.clientById(widget.clientId);
     final activePlan = state.activePlanForClient(widget.clientId);
-    final template = activePlan != null
-        ? state.templateById(activePlan.templateId)
-        : null;
+    final template = activePlan != null ? state.templateById(activePlan.templateId) : null;
 
-    final today = jc.JalaliDate.today().toString();
-    final totalDays =
-        jc.JalaliDate.monthDays(_viewMonth.year, _viewMonth.month);
-    final firstWeekday = jc.JalaliDate.firstWeekdayOfMonth(
-        _viewMonth.year, _viewMonth.month);
+    // Use shamsi_date for accurate calendar math
+    final jDate = Jalali(_viewYear, _viewMonth, 1);
+    final totalDays = jDate.monthLength;
+    final firstWeekDay = jDate.weekDay; // 1=Shanbe, 7=Jomeh
+    final leadingEmptyDays = firstWeekDay - 1;
+    
+    final today = Jalali.now();
 
-    final cells = <Widget>[];
-    for (int i = 0; i < firstWeekday; i++) {
-      cells.add(const SizedBox.shrink());
-    }
-    for (int d = 1; d <= totalDays; d++) {
-      final ds = _dateStr(d);
-      final status = _draft[ds];
-      final isToday = ds == today;
-
-      cells.add(GestureDetector(
-        onTap: () => _toggleDay(ds),
-        child: Container(
-          decoration: BoxDecoration(
-            color: status == 'present'
-                ? AppTokens.successSoft
-                : status == 'absent'
-                    ? AppTokens.errorSoft
-                    : (isToday
-                        ? AppTokens.primary.withValues(alpha: 0.10)
-                        : Colors.transparent),
-            borderRadius: BorderRadius.circular(10),
-            border: isToday
-                ? Border.all(
-                    color: AppTokens.primary.withValues(alpha: 0.55),
-                    width: 1.5,
-                  )
-                : null,
-          ),
-          alignment: Alignment.center,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                fa(d),
-                style: TextStyle(
-                  fontFamily: 'Vazir',
-                  fontSize: 12.5,
-                  fontWeight:
-                      status != null ? FontWeight.w900 : FontWeight.w600,
-                  color: status == 'present'
-                      ? AppTokens.success
-                      : status == 'absent'
-                          ? AppTokens.error
-                          : AppTokens.onSurface,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ));
-    }
+    // Get month name from your custom utility for consistency
+    final monthName = jc.JalaliDate(_viewYear, _viewMonth, 1).monthName;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('حضور گذشته'),
+        title: Text('حضور گذشته'),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.settings_outlined, size: 22),
+            onPressed: () => showSettingsSheet(context),
+          ),
+        ],
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
         children: [
-          // Plan info card
-          if (template != null) ...[
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: AppTokens.surface,
-                borderRadius: BorderRadius.circular(AppTokens.rMd),
-                border: Border.all(color: AppTokens.outlineVariant),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: AppTokens.background,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    alignment: Alignment.center,
-                    child: const Icon(Icons.fitness_center,
-                        size: 16, color: AppTokens.onSurfaceVar),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          template.name,
-                          style: const TextStyle(
-                            fontFamily: 'Vazir',
-                            fontSize: 13,
-                            fontWeight: FontWeight.w800,
-                            color: AppTokens.onSurface,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          '${fa(activePlan!.remaining)} جلسه از ${fa(template.sessions)} باقی‌مانده',
-                          style: const TextStyle(
-                            fontFamily: 'Vazir',
-                            fontSize: 11,
-                            color: AppTokens.onSurfaceVar,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-          ],
-
-          // Hint
+          // Info Card
           Container(
-            padding: const EdgeInsets.symmetric(
-                horizontal: 14, vertical: 12),
+            padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
               color: AppTokens.surface,
               borderRadius: BorderRadius.circular(AppTokens.rMd),
               border: Border.all(color: AppTokens.outlineVariant),
             ),
-            child: const Text(
-              'روی هر روز بزن تا وضعیتش عوض شود: حاضر → غایب → خالی',
-              style: TextStyle(
-                fontFamily: 'Vazir',
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: AppTokens.onSurfaceVar,
-                height: 1.7,
+            child: Row(
+              children: [
+                Container(
+                  width: 36, height: 36,
+                  decoration: BoxDecoration(color: AppTokens.background, borderRadius: BorderRadius.circular(12)),
+                  alignment: Alignment.center,
+                  child: Icon(Icons.fitness_center, size: 16, color: AppTokens.onSurfaceVar),
+                ),
+                SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        template?.name ?? 'برنامه فعال',
+                        style: TextStyle(fontFamily: 'Vazir', fontSize: 13, fontWeight: FontWeight.w800, color: AppTokens.onSurface),
+                      ),
+                      SizedBox(height: 2),
+                      Text(
+                        '${fa(client?.bonusSessions ?? 0)} جلسه اضافه موجود',
+                        style: TextStyle(fontFamily: 'Vazir', fontSize: 11, color: AppTokens.onSurfaceVar),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(height: 14),
+
+          // Instruction
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: AppTokens.surface,
+              borderRadius: BorderRadius.circular(AppTokens.rMd),
+              border: Border.all(color: AppTokens.outlineVariant),
+            ),
+            child: Text.rich(
+              TextSpan(
+                style: TextStyle(fontFamily: 'Vazir', fontSize: 12, color: AppTokens.onSurfaceVar, height: 1.7),
+                children: [
+                  TextSpan(text: 'روی هر روز بزن تا وضعیتش عوض شود: '),
+                  TextSpan(text: 'حاضر', style: TextStyle(color: AppTokens.success, fontWeight: FontWeight.w700)),
+                  TextSpan(text: ' ← '),
+                  TextSpan(text: 'غایب', style: TextStyle(color: AppTokens.error, fontWeight: FontWeight.w700)),
+                  TextSpan(text: ' ← '),
+                  TextSpan(text: 'خالی', style: TextStyle(fontWeight: FontWeight.w700)),
+                ],
               ),
             ),
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: 14),
 
-          // Calendar
+          // Calendar Card
           Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
@@ -234,87 +209,130 @@ class _PastAttendanceScreenState extends State<PastAttendanceScreen> {
               children: [
                 // Header
                 Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     IconButton(
-                      icon: const Icon(Icons.chevron_right),
-                      onPressed: () => setState(() {
-                        _viewMonth = _viewMonth.prevMonth();
-                      }),
+                      icon: Icon(Icons.chevron_right, size: 20),
+                      onPressed: _prevMonth,
+                      color: AppTokens.onSurfaceVar,
                     ),
-                    Expanded(
-                      child: Center(
-                        child: Text(
-                          '${jc.JalaliDate.monthNames[_viewMonth.month - 1]} ${fa(_viewMonth.year)}',
-                          style: const TextStyle(
-                            fontFamily: 'Vazir',
-                            fontSize: 14,
-                            fontWeight: FontWeight.w800,
-                            color: AppTokens.onSurface,
-                          ),
-                        ),
-                      ),
+                    Text(
+                      '$monthName ${fa(_viewYear)}',
+                      style: TextStyle(fontFamily: 'Vazir', fontSize: 14, fontWeight: FontWeight.w800, color: AppTokens.onSurface),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.chevron_left),
-                      onPressed: () => setState(() {
-                        _viewMonth = _viewMonth.nextMonth();
-                      }),
+                      icon: Icon(Icons.chevron_left, size: 20),
+                      onPressed: _nextMonth,
+                      color: AppTokens.onSurfaceVar,
                     ),
                   ],
                 ),
-                const SizedBox(height: 6),
-
-                // Weekday letters
+                SizedBox(height: 12),
+                
+                // DOW Headers
                 Row(
-                  children: jc.JalaliDate.weekdayLetters
-                      .map((l) => Expanded(
-                            child: Center(
-                              child: Text(
-                                l,
-                                style: const TextStyle(
-                                  fontFamily: 'Vazir',
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w700,
-                                  color: AppTokens.onSurfaceVar,
-                                ),
-                              ),
-                            ),
-                          ))
-                      .toList(),
+                  children: _dows.map((d) => Expanded(
+                    child: Center(
+                      child: Text(d, style: TextStyle(fontFamily: 'Vazir', fontSize: 10, fontWeight: FontWeight.w700, color: AppTokens.onSurfaceVar.withValues(alpha: 0.7))),
+                    ),
+                  )).toList(),
                 ),
-                const SizedBox(height: 6),
+                SizedBox(height: 6),
 
-                // Grid
+                // Days Grid
                 GridView.count(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
                   crossAxisCount: 7,
-                  mainAxisSpacing: 3,
-                  crossAxisSpacing: 3,
+                  mainAxisSpacing: 4,
+                  crossAxisSpacing: 4,
                   childAspectRatio: 1,
-                  children: cells,
+                  children: [
+                    ...List.generate(leadingEmptyDays, (_) => const SizedBox.shrink()),
+                    ...List.generate(totalDays, (index) {
+                      final day = index + 1;
+                      final dateStr = '${fa(_viewYear)}/${fa(_viewMonth.toString().padLeft(2, '0'))}/${fa(day.toString().padLeft(2, '0'))}';
+                      final status = _draftAttendance[dateStr];
+                      final isToday = today.year == _viewYear && today.month == _viewMonth && today.day == day;
+                      final isSelected = _selectedDate == dateStr;
+
+                      return GestureDetector(
+                        onTap: () => _toggleDay(dateStr),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: isSelected 
+                                ? AppTokens.primary 
+                                : isToday 
+                                    ? AppTokens.primary.withValues(alpha: 0.14) 
+                                    : Colors.transparent,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                fa(day),
+                                style: TextStyle(
+                                  fontFamily: 'Vazir',
+                                  fontSize: 12.5,
+                                  fontWeight: isSelected ? FontWeight.w900 : (isToday ? FontWeight.w900 : FontWeight.w600),
+                                  color: isSelected ? Colors.white : (isToday ? AppTokens.primaryDark : AppTokens.onSurface),
+                                ),
+                              ),
+                              SizedBox(height: 4),
+                              if (status != null)
+                                Container(
+                                  width: 4, height: 4,
+                                  decoration: BoxDecoration(
+                                    color: isSelected 
+                                        ? (status == 'present' ? Colors.white : const Color(0xFFF5C6C6)) 
+                                        : (status == 'present' ? AppTokens.success : AppTokens.error),
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }),
+                  ],
                 ),
               ],
             ),
           ),
+          SizedBox(height: 14),
 
-          const SizedBox(height: 24),
-          FilledButton.icon(
-            onPressed: _save,
-            icon: const Icon(Icons.check, size: 18),
-            label: const Text('ذخیره و بازگشت'),
-            style: FilledButton.styleFrom(
-              backgroundColor: AppTokens.primary,
-              foregroundColor: Colors.white,
-              minimumSize: const Size.fromHeight(48),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(AppTokens.rLg),
+          // Selected Date Info
+          if (_selectedDate != null)
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+              alignment: Alignment.center,
+              child: Text(
+                '$_selectedDate — ${_draftAttendance[_selectedDate] == 'present' ? 'حاضر' : (_draftAttendance[_selectedDate] == 'absent' ? 'غایب' : 'پاک شد')}',
+                style: TextStyle(
+                  fontFamily: 'Vazir',
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: _draftAttendance[_selectedDate] == 'present' ? AppTokens.success : (_draftAttendance[_selectedDate] == 'absent' ? AppTokens.error : AppTokens.onSurfaceVar),
+                ),
               ),
-              textStyle: const TextStyle(
-                fontFamily: 'Vazir',
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
+            ),
+
+          SizedBox(height: 24),
+
+          // Save Button
+          SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: FilledButton(
+              onPressed: _save,
+              style: FilledButton.styleFrom(
+                backgroundColor: AppTokens.primary,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTokens.rLg)),
+                textStyle: TextStyle(fontFamily: 'Vazir', fontSize: 14, fontWeight: FontWeight.w700),
               ),
+              child: Text('ذخیره و بازگشت'),
             ),
           ),
         ],

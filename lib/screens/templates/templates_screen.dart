@@ -7,6 +7,8 @@ import '../../theme/app_tokens.dart';
 import '../../utils/persian_numbers.dart';
 import '../add_edit_template/add_edit_template_screen.dart';
 
+import '../../widgets/settings_sheet.dart';
+
 class TemplatesScreen extends StatelessWidget {
   const TemplatesScreen({super.key});
 
@@ -15,13 +17,21 @@ class TemplatesScreen extends StatelessWidget {
     final state = context.watch<AppState>();
 
     return Scaffold(
-      appBar: AppBar(title: const Text('برنامه‌ها')),
+      appBar: AppBar(
+        title: Text('برنامه‌ها'),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.settings_outlined, size: 22),
+            onPressed: () => showSettingsSheet(context),
+          ),
+        ],
+      ),
       body: state.templates.isEmpty
           ? const _EmptyState()
           : ListView(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
               children: [
-                const Padding(
+                Padding(
                   padding: EdgeInsets.symmetric(horizontal: 4),
                   child: Text(
                     'اینجا قالب‌های برنامه‌ات را می‌سازی. موقع افزودن برنامه به کلاینت، یکی از این‌ها را انتخاب می‌کنی.',
@@ -34,7 +44,7 @@ class TemplatesScreen extends StatelessWidget {
                     ),
                   ),
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: 16),
                 ...state.templates.map((t) => _TemplateCard(
                       template: t,
                       usageCount: state.plans
@@ -58,7 +68,7 @@ class TemplatesScreen extends StatelessWidget {
           );
         },
         heroTag: 'templates_fab',
-        child: const Icon(Icons.add, size: 26),
+        child: Icon(Icons.add, size: 26),
       ),
     );
   }
@@ -90,10 +100,10 @@ class _TemplateCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(14),
             ),
             alignment: Alignment.center,
-            child: const Icon(Icons.fitness_center,
+            child: Icon(Icons.fitness_center,
                 color: AppTokens.primary, size: 20),
           ),
-          const SizedBox(width: 12),
+          SizedBox(width: 12),
 
           // Body
           Expanded(
@@ -102,26 +112,26 @@ class _TemplateCard extends StatelessWidget {
               children: [
                 Text(
                   template.name,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontFamily: 'Vazir',
                     fontSize: 14,
                     fontWeight: FontWeight.w800,
                     color: AppTokens.onSurface,
                   ),
                 ),
-                const SizedBox(height: 5),
+                SizedBox(height: 5),
                 Row(
                   children: [
                     _MiniTag(text: '${fa(template.sessions)} جلسه'),
-                    const SizedBox(width: 6),
+                    SizedBox(width: 6),
                     _MiniTag(text: '${fa(template.days)} روز'),
                   ],
                 ),
                 if (usageCount > 0) ...[
-                  const SizedBox(height: 6),
+                  SizedBox(height: 6),
                   Text(
                     'در ${fa(usageCount)} برنامه استفاده شده',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontFamily: 'Vazir',
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
@@ -135,7 +145,7 @@ class _TemplateCard extends StatelessWidget {
 
           // Edit button
           IconButton(
-            icon: const Icon(Icons.edit_outlined, size: 18),
+            icon: Icon(Icons.edit_outlined, size: 18),
             color: AppTokens.onSurfaceVar,
             onPressed: () {
               Navigator.push(
@@ -150,7 +160,7 @@ class _TemplateCard extends StatelessWidget {
 
           // Delete button
           IconButton(
-            icon: const Icon(Icons.delete_outline, size: 18),
+            icon: Icon(Icons.delete_outline, size: 18),
             color: AppTokens.error,
             onPressed: () {
               _showDeleteDialog(context, template, usageCount);
@@ -171,16 +181,16 @@ class _TemplateCard extends StatelessWidget {
     showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('حذف قالب',
+        title: Text('حذف قالب',
             style: TextStyle(fontFamily: 'Vazir', fontWeight: FontWeight.w800)),
         content: Text(
           'آیا از حذف «${template.name}» اطمینان داری؟$warning',
-          style: const TextStyle(fontFamily: 'Vazir', height: 1.8),
+          style: TextStyle(fontFamily: 'Vazir', height: 1.8),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('لغو',
+            child: Text('لغو',
                 style: TextStyle(fontFamily: 'Vazir')),
           ),
           TextButton(
@@ -193,7 +203,7 @@ class _TemplateCard extends StatelessWidget {
                 );
               }
             },
-            child: const Text('حذف',
+            child: Text('حذف',
                 style: TextStyle(
                     fontFamily: 'Vazir',
                     color: AppTokens.error,
@@ -219,7 +229,7 @@ class _MiniTag extends StatelessWidget {
       ),
       child: Text(
         text,
-        style: const TextStyle(
+        style: TextStyle(
           fontFamily: 'Vazir',
           fontSize: 11,
           fontWeight: FontWeight.w700,
@@ -235,7 +245,7 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
+    return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [

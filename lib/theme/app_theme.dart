@@ -18,7 +18,7 @@ ThemeData buildAppTheme() {
     fontFamily: 'Vazir',
     scaffoldBackgroundColor: AppTokens.background,
 
-    appBarTheme: const AppBarTheme(
+    appBarTheme: AppBarTheme(
       backgroundColor: AppTokens.primary,
       foregroundColor: Colors.white,
       elevation: 0,
@@ -62,11 +62,11 @@ ThemeData buildAppTheme() {
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppTokens.rMd),
-        side: const BorderSide(color: AppTokens.outlineVariant),
+        side: BorderSide(color: AppTokens.outlineVariant),
       ),
     ),
 
-    dividerTheme: const DividerThemeData(
+    dividerTheme: DividerThemeData(
       color: AppTokens.outlineVariant,
       thickness: 1,
       space: 1,
@@ -81,17 +81,17 @@ ThemeData buildAppTheme() {
       ),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(AppTokens.rMd),
-        borderSide: const BorderSide(color: AppTokens.outlineVariant),
+        borderSide: BorderSide(color: AppTokens.outlineVariant),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(AppTokens.rMd),
-        borderSide: const BorderSide(color: AppTokens.outlineVariant),
+        borderSide: BorderSide(color: AppTokens.outlineVariant),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(AppTokens.rMd),
-        borderSide: const BorderSide(color: AppTokens.primary, width: 2),
+        borderSide: BorderSide(color: AppTokens.primary, width: 2),
       ),
-      hintStyle: const TextStyle(
+      hintStyle: TextStyle(
         fontFamily: 'Vazir',
         color: AppTokens.onSurfaceVar,
         fontSize: 14,
@@ -106,7 +106,7 @@ ThemeData buildAppTheme() {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppTokens.rLg),
         ),
-        textStyle: const TextStyle(
+        textStyle: TextStyle(
           fontFamily: 'Vazir',
           fontSize: 14,
           fontWeight: FontWeight.w700,
@@ -118,11 +118,11 @@ ThemeData buildAppTheme() {
       style: OutlinedButton.styleFrom(
         foregroundColor: AppTokens.primary,
         minimumSize: const Size.fromHeight(48),
-        side: const BorderSide(color: AppTokens.primary, width: 1.5),
+        side: BorderSide(color: AppTokens.primary, width: 1.5),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppTokens.rLg),
         ),
-        textStyle: const TextStyle(
+        textStyle: TextStyle(
           fontFamily: 'Vazir',
           fontSize: 14,
           fontWeight: FontWeight.w700,

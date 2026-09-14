@@ -95,7 +95,7 @@ class AppButton extends StatelessWidget {
       children: [
         if (icon != null) ...[
           Icon(icon, size: _iconSize, color: _fg),
-          const SizedBox(width: 8),
+          SizedBox(width: 8),
         ],
         Text(
           label,

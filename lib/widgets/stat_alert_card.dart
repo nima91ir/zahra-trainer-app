@@ -66,10 +66,10 @@ class StatAlertCard extends StatelessWidget {
                 color: isZero ? AppTokens.outline : AppTokens.onSurface,
               ),
             ),
-            const SizedBox(height: 4),
+            SizedBox(height: 4),
             Text(
               label,
-              style: const TextStyle(
+              style: TextStyle(
                 fontFamily: 'Vazir',
                 fontSize: 12,
                 fontWeight: FontWeight.w700,

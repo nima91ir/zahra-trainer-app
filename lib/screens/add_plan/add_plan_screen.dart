@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../data/models/plan_template.dart';
 import '../../state/app_state.dart';
 import '../../theme/app_tokens.dart';
 import '../../utils/jalali_calendar.dart' as jc;
 import '../../utils/persian_numbers.dart';
+import '../../widgets/settings_sheet.dart';
 
 class AddPlanScreen extends StatefulWidget {
   final int clientId;
@@ -17,25 +17,40 @@ class AddPlanScreen extends StatefulWidget {
 
 class _AddPlanScreenState extends State<AddPlanScreen> {
   int? _selectedTemplateId;
-  late jc.JalaliDate _selectedDate;
+  late String _selectedDate;
 
   @override
   void initState() {
     super.initState();
-    _selectedDate = jc.JalaliDate.today();
+    _selectedDate = jc.JalaliDate.today().toString();
   }
 
-  Future<void> _pickDate() async {
-    final picked = await showDialog<jc.JalaliDate>(
+  Future<void> _selectDate() async {
+    final controller = TextEditingController(text: _selectedDate);
+    final result = await showDialog<String>(
       context: context,
-      builder: (_) => _JalaliDatePickerDialog(initial: _selectedDate),
+      builder: (ctx) => AlertDialog(
+        title: Text('تاریخ شروع', style: TextStyle(fontFamily: 'Vazir', fontWeight: FontWeight.w800)),
+        content: TextField(
+          controller: controller,
+          decoration: InputDecoration(hintText: '1405/06/21'),
+          style: TextStyle(fontFamily: 'Vazir'),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text('لغو', style: TextStyle(fontFamily: 'Vazir'))),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, controller.text),
+            child: Text('تایید', style: TextStyle(fontFamily: 'Vazir', color: AppTokens.primary, fontWeight: FontWeight.w700)),
+          ),
+        ],
+      ),
     );
-    if (picked != null) {
-      setState(() => _selectedDate = picked);
+    if (result != null && result.isNotEmpty) {
+      setState(() => _selectedDate = result);
     }
   }
 
-  Future<void> _save() async {
+  Future<void> _savePlan() async {
     if (_selectedTemplateId == null) return;
     final state = context.read<AppState>();
     final nav = Navigator.of(context);
@@ -43,18 +58,16 @@ class _AddPlanScreenState extends State<AddPlanScreen> {
     await state.addPlan(
       clientId: widget.clientId,
       templateId: _selectedTemplateId!,
-      startDate: _selectedDate.toString(),
+      startDate: _selectedDate,
     );
 
     if (mounted) {
-      final active = state.activePlanForClient(widget.clientId);
-      final queued = state.queuedPlansForClient(widget.clientId);
-      final wasQueued = active != null && queued.isNotEmpty;
+      final hasActivePlan = state.activePlanForClient(widget.clientId) != null;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            wasQueued ? 'به صف اضافه شد' : 'برنامه فعال شد',
-            style: const TextStyle(fontFamily: 'Vazir'),
+            hasActivePlan ? 'به صف اضافه شد' : 'برنامه فعال شد',
+            style: TextStyle(fontFamily: 'Vazir'),
           ),
         ),
       );
@@ -65,18 +78,45 @@ class _AddPlanScreenState extends State<AddPlanScreen> {
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
-    final hasActive = state.activePlanForClient(widget.clientId) != null;
+    final activePlan = state.activePlanForClient(widget.clientId);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('افزودن برنامه')),
+      appBar: AppBar(
+        title: Text('افزودن برنامه'),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.settings_outlined, size: 22),
+            onPressed: () => showSettingsSheet(context),
+          ),
+        ],
+      ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
         children: [
-          if (hasActive) ...[
-            _QueueNotice(),
-            const SizedBox(height: 16),
+          // Queue Warning
+          if (activePlan != null) ...[
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: AppTokens.primary.withValues(alpha: 0.14),
+                borderRadius: BorderRadius.circular(AppTokens.rMd),
+              ),
+              child: Text(
+                'ℹ️ این کلاینت برنامه فعال دارد. این برنامه جدید به صف اضافه می‌شود.',
+                style: TextStyle(
+                  fontFamily: 'Vazir',
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
+                  color: AppTokens.primaryDark,
+                  height: 1.7,
+                ),
+              ),
+            ),
+            SizedBox(height: 16),
           ],
-          const Padding(
+
+          // Template Picker
+          Padding(
             padding: EdgeInsets.symmetric(horizontal: 4),
             child: Text(
               'انتخاب قالب',
@@ -88,18 +128,87 @@ class _AddPlanScreenState extends State<AddPlanScreen> {
               ),
             ),
           ),
-          const SizedBox(height: 10),
+          SizedBox(height: 10),
           if (state.templates.isEmpty)
-            _NoTemplatesNotice()
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: AppTokens.surface,
+                borderRadius: BorderRadius.circular(AppTokens.rMd),
+                border: Border.all(color: AppTokens.outlineVariant),
+              ),
+              child: Column(
+                children: [
+                  Text(
+                    'هنوز قالبی نساخته‌ای.',
+                    style: TextStyle(fontFamily: 'Vazir', fontSize: 13, color: AppTokens.onSurfaceVar),
+                  ),
+                  SizedBox(height: 14),
+                ],
+              ),
+            )
           else
-            ...state.templates.map((t) => _TemplateOption(
-                  template: t,
-                  selected: _selectedTemplateId == t.id,
-                  onTap: () =>
-                      setState(() => _selectedTemplateId = t.id),
-                )),
-          const SizedBox(height: 20),
-          const Padding(
+            ...state.templates.map((t) {
+              final isSelected = _selectedTemplateId == t.id;
+              return GestureDetector(
+                onTap: () => setState(() => _selectedTemplateId = t.id),
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: AppTokens.surface,
+                    borderRadius: BorderRadius.circular(AppTokens.rMd),
+                    border: Border.all(
+                      color: isSelected ? AppTokens.primary : AppTokens.outlineVariant,
+                      width: isSelected ? 2 : 1,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 44, height: 44,
+                        decoration: BoxDecoration(
+                          color: AppTokens.primary.withValues(alpha: 0.14),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        alignment: Alignment.center,
+                        child: Icon(Icons.fitness_center, color: AppTokens.primary, size: 20),
+                      ),
+                      SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              t.name,
+                              style: TextStyle(
+                                fontFamily: 'Vazir',
+                                fontSize: 14,
+                                fontWeight: FontWeight.w800,
+                                color: AppTokens.onSurface,
+                              ),
+                            ),
+                            SizedBox(height: 5),
+                            Row(
+                              children: [
+                                _MiniTag(text: '${fa(t.sessions)} جلسه'),
+                                SizedBox(width: 6),
+                                _MiniTag(text: '${fa(t.days)} روز'),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }),
+
+          SizedBox(height: 16),
+
+          // Date Picker
+          Padding(
             padding: EdgeInsets.symmetric(horizontal: 4),
             child: Text(
               'تاریخ شروع',
@@ -111,204 +220,58 @@ class _AddPlanScreenState extends State<AddPlanScreen> {
               ),
             ),
           ),
-          const SizedBox(height: 10),
+          SizedBox(height: 10),
           GestureDetector(
-            onTap: _pickDate,
+            onTap: _selectDate,
             child: Container(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 16, vertical: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               decoration: BoxDecoration(
                 color: AppTokens.surface,
                 borderRadius: BorderRadius.circular(AppTokens.rMd),
-                border: Border.all(color: AppTokens.outline),
+                border: Border.all(color: AppTokens.outlineVariant),
               ),
               child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      _selectedDate.toString(),
-                      style: const TextStyle(
-                        fontFamily: 'Vazir',
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: AppTokens.onSurface,
-                      ),
-                    ),
-                  ),
-                  const Icon(Icons.calendar_today,
-                      size: 18, color: AppTokens.onSurfaceVar),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 28),
-          FilledButton.icon(
-            onPressed:
-                _selectedTemplateId == null ? null : _save,
-            icon: const Icon(Icons.check, size: 18),
-            label: const Text('ایجاد برنامه'),
-            style: FilledButton.styleFrom(
-              backgroundColor: AppTokens.primary,
-              foregroundColor: Colors.white,
-              minimumSize: const Size.fromHeight(48),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(AppTokens.rLg),
-              ),
-              textStyle: const TextStyle(
-                fontFamily: 'Vazir',
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ═══════════════ Queue notice ═══════════════
-
-class _QueueNotice extends StatelessWidget {
-  const _QueueNotice();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppTokens.primary.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(AppTokens.rMd),
-        border: Border.all(
-            color: AppTokens.primary.withValues(alpha: 0.30)),
-      ),
-      child: const Text(
-        'این کلاینت برنامه فعال دارد. این برنامه جدید به صف اضافه می‌شود و بعد از تمام شدن برنامه فعلی فعال می‌شود.',
-        style: TextStyle(
-          fontFamily: 'Vazir',
-          fontSize: 12.5,
-          fontWeight: FontWeight.w700,
-          color: AppTokens.primaryDark,
-          height: 1.7,
-        ),
-      ),
-    );
-  }
-}
-
-// ═══════════════ No templates ═══════════════
-
-class _NoTemplatesNotice extends StatelessWidget {
-  const _NoTemplatesNotice();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppTokens.surface,
-        borderRadius: BorderRadius.circular(AppTokens.rMd),
-        border: Border.all(color: AppTokens.outlineVariant),
-      ),
-      child: const Text(
-        'هنوز قالبی نساخته‌ای. اول از بخش برنامه‌ها یک قالب بساز.',
-        textAlign: TextAlign.center,
-        style: TextStyle(
-          fontFamily: 'Vazir',
-          fontSize: 12.5,
-          color: AppTokens.onSurfaceVar,
-          height: 1.8,
-        ),
-      ),
-    );
-  }
-}
-
-// ═══════════════ Template option ═══════════════
-
-class _TemplateOption extends StatelessWidget {
-  final PlanTemplate template;
-  final bool selected;
-  final VoidCallback onTap;
-
-  const _TemplateOption({
-    required this.template,
-    required this.selected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: selected
-              ? AppTokens.primary.withValues(alpha: 0.10)
-              : AppTokens.surface,
-          borderRadius: BorderRadius.circular(AppTokens.rMd),
-          border: Border.all(
-            color: selected
-                ? AppTokens.primary
-                : AppTokens.outlineVariant,
-            width: selected ? 2 : 1,
-          ),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: AppTokens.primary.withValues(alpha: 0.14),
-                borderRadius: BorderRadius.circular(14),
-              ),
-              alignment: Alignment.center,
-              child: const Icon(Icons.fitness_center,
-                  color: AppTokens.primary, size: 20),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    template.name,
-                    style: const TextStyle(
+                    _selectedDate.isEmpty ? 'انتخاب تاریخ' : _selectedDate,
+                    style: TextStyle(
                       fontFamily: 'Vazir',
-                      fontSize: 14,
-                      fontWeight: FontWeight.w800,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
                       color: AppTokens.onSurface,
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      _MiniTag(
-                          text: '${fa(template.sessions)} جلسه'),
-                      const SizedBox(width: 6),
-                      _MiniTag(text: '${fa(template.days)} روز'),
-                    ],
-                  ),
+                  Icon(Icons.calendar_today, size: 18, color: AppTokens.onSurfaceVar),
                 ],
               ),
             ),
-            if (selected)
-              const Icon(Icons.check_circle,
-                  color: AppTokens.primary, size: 22)
-            else
-              Container(
-                width: 22,
-                height: 22,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(color: AppTokens.outlineVariant),
+          ),
+
+          SizedBox(height: 32),
+
+          // Save Button
+          SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: FilledButton(
+              onPressed: _selectedTemplateId != null ? _savePlan : null,
+              style: FilledButton.styleFrom(
+                backgroundColor: AppTokens.primary,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppTokens.rLg),
+                ),
+                textStyle: TextStyle(
+                  fontFamily: 'Vazir',
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
-          ],
-        ),
+              child: Text('ایجاد برنامه'),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -328,205 +291,11 @@ class _MiniTag extends StatelessWidget {
       ),
       child: Text(
         text,
-        style: const TextStyle(
+        style: TextStyle(
           fontFamily: 'Vazir',
           fontSize: 11,
           fontWeight: FontWeight.w700,
           color: AppTokens.onSurfaceVar,
-        ),
-      ),
-    );
-  }
-}
-
-// ═══════════════ Jalali date picker dialog ═══════════════
-
-class _JalaliDatePickerDialog extends StatefulWidget {
-  final jc.JalaliDate initial;
-  const _JalaliDatePickerDialog({required this.initial});
-
-  @override
-  State<_JalaliDatePickerDialog> createState() =>
-      _JalaliDatePickerDialogState();
-}
-
-class _JalaliDatePickerDialogState
-    extends State<_JalaliDatePickerDialog> {
-  late jc.JalaliDate _viewMonth;
-  late jc.JalaliDate _selected;
-
-  @override
-  void initState() {
-    super.initState();
-    _selected = widget.initial;
-    _viewMonth = jc.JalaliDate(
-      widget.initial.year,
-      widget.initial.month,
-      1,
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final totalDays =
-        jc.JalaliDate.monthDays(_viewMonth.year, _viewMonth.month);
-    final firstWeekday = jc.JalaliDate.firstWeekdayOfMonth(
-        _viewMonth.year, _viewMonth.month);
-    final today = jc.JalaliDate.today();
-
-    final cells = <Widget>[];
-    for (int i = 0; i < firstWeekday; i++) {
-      cells.add(const SizedBox.shrink());
-    }
-    for (int d = 1; d <= totalDays; d++) {
-      final date = jc.JalaliDate(_viewMonth.year, _viewMonth.month, d);
-      final isSelected = date == _selected;
-      final isToday = date == today;
-
-      Color bg = Colors.transparent;
-      Color fg = AppTokens.onSurface;
-      FontWeight weight = FontWeight.w600;
-      if (isSelected) {
-        bg = AppTokens.primary;
-        fg = Colors.white;
-        weight = FontWeight.w900;
-      } else if (isToday) {
-        bg = AppTokens.primary.withValues(alpha: 0.14);
-        fg = AppTokens.primaryDark;
-        weight = FontWeight.w900;
-      }
-
-      cells.add(GestureDetector(
-        onTap: () => setState(() => _selected = date),
-        child: Container(
-          decoration: BoxDecoration(
-            color: bg,
-            borderRadius: BorderRadius.circular(10),
-          ),
-          alignment: Alignment.center,
-          child: Text(
-            fa(d),
-            style: TextStyle(
-              fontFamily: 'Vazir',
-              fontSize: 12.5,
-              fontWeight: weight,
-              color: fg,
-            ),
-          ),
-        ),
-      ));
-    }
-
-    return Dialog(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppTokens.rXl),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              'انتخاب تاریخ',
-              style: TextStyle(
-                fontFamily: 'Vazir',
-                fontSize: 16,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            const SizedBox(height: 14),
-            Row(
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.chevron_right),
-                  onPressed: () => setState(() {
-                    _viewMonth = _viewMonth.prevMonth();
-                  }),
-                ),
-                Expanded(
-                  child: Center(
-                    child: Text(
-                      '${jc.JalaliDate.monthNames[_viewMonth.month - 1]} ${fa(_viewMonth.year)}',
-                      style: const TextStyle(
-                        fontFamily: 'Vazir',
-                        fontSize: 14,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.chevron_left),
-                  onPressed: () => setState(() {
-                    _viewMonth = _viewMonth.nextMonth();
-                  }),
-                ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            Row(
-              children: jc.JalaliDate.weekdayLetters
-                  .map((l) => Expanded(
-                        child: Center(
-                          child: Text(
-                            l,
-                            style: const TextStyle(
-                              fontFamily: 'Vazir',
-                              fontSize: 10,
-                              fontWeight: FontWeight.w700,
-                              color: AppTokens.onSurfaceVar,
-                            ),
-                          ),
-                        ),
-                      ))
-                  .toList(),
-            ),
-            const SizedBox(height: 6),
-            SizedBox(
-              width: 300,
-              child: GridView.count(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                crossAxisCount: 7,
-                mainAxisSpacing: 3,
-                crossAxisSpacing: 3,
-                childAspectRatio: 1,
-                children: cells,
-              ),
-            ),
-            const SizedBox(height: 14),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('لغو',
-                        style: TextStyle(fontFamily: 'Vazir')),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: FilledButton(
-                    onPressed: () => Navigator.pop(context, _selected),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: AppTokens.primary,
-                      foregroundColor: Colors.white,
-                      minimumSize: const Size.fromHeight(44),
-                      shape: RoundedRectangleBorder(
-                        borderRadius:
-                            BorderRadius.circular(AppTokens.rMd),
-                      ),
-                      textStyle: const TextStyle(
-                        fontFamily: 'Vazir',
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    child: const Text('تایید'),
-                  ),
-                ),
-              ],
-            ),
-          ],
         ),
       ),
     );

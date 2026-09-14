@@ -87,7 +87,7 @@ class JalaliCalendar extends StatelessWidget {
                 child: Center(
                   child: Text(
                     '${jc.JalaliDate.monthNames[month - 1]} ${fa(year)}',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontFamily: 'Vazir',
                       fontSize: 14,
                       fontWeight: FontWeight.w800,
@@ -99,7 +99,7 @@ class JalaliCalendar extends StatelessWidget {
               _NavButton(icon: Icons.chevron_left, onTap: onNextMonth),
             ],
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
 
           // Weekday letters
           Row(
@@ -108,7 +108,7 @@ class JalaliCalendar extends StatelessWidget {
                       child: Center(
                         child: Text(
                           l,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontFamily: 'Vazir',
                             fontSize: 10,
                             fontWeight: FontWeight.w700,
@@ -119,7 +119,7 @@ class JalaliCalendar extends StatelessWidget {
                     ))
                 .toList(),
           ),
-          const SizedBox(height: 6),
+          SizedBox(height: 6),
 
           // Grid
           GridView.count(
@@ -134,12 +134,12 @@ class JalaliCalendar extends StatelessWidget {
 
           // Legend
           if (showLegend) ...[
-            const SizedBox(height: 10),
+            SizedBox(height: 10),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 _LegendDot(color: AppTokens.success, label: 'حاضر'),
-                const SizedBox(width: 14),
+                SizedBox(width: 14),
                 _LegendDot(color: AppTokens.error, label: 'غایب'),
               ],
             ),
@@ -163,7 +163,7 @@ class _NavButton extends StatelessWidget {
       child: Container(
         width: 32,
         height: 32,
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           color: AppTokens.background,
           shape: BoxShape.circle,
         ),
@@ -189,10 +189,10 @@ class _LegendDot extends StatelessWidget {
           height: 6,
           decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
-        const SizedBox(width: 4),
+        SizedBox(width: 4),
         Text(
           label,
-          style: const TextStyle(
+          style: TextStyle(
             fontFamily: 'Vazir',
             fontSize: 10.5,
             fontWeight: FontWeight.w600,
@@ -269,7 +269,7 @@ class _DayCell extends StatelessWidget {
                 color: fg,
               ),
             ),
-            const SizedBox(height: 2),
+            SizedBox(height: 2),
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -282,7 +282,7 @@ class _DayCell extends StatelessWidget {
                       shape: BoxShape.circle,
                     ),
                   ),
-                  const SizedBox(width: 2),
+                  SizedBox(width: 2),
                 ],
                 if (absentCount > 0)
                   Container(
@@ -301,3 +301,4 @@ class _DayCell extends StatelessWidget {
     );
   }
 }
+

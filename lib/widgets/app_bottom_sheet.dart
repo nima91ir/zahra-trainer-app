@@ -25,7 +25,7 @@ Future<T?> showAppSheet<T>({
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
             // Drag handle
             Container(
               width: 40,
@@ -35,7 +35,7 @@ Future<T?> showAppSheet<T>({
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
-            const SizedBox(height: 14),
+            SizedBox(height: 14),
             // Content
             Flexible(
               child: SingleChildScrollView(

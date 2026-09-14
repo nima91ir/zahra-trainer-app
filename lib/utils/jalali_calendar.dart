@@ -54,12 +54,28 @@ class JalaliDate {
       other.month == month &&
       other.day == day;
 
+  @override
+  int get hashCode => Object.hash(year, month, day);
+
   // ─── Static data ───
   static const List<String> monthNames = [
     'فروردین', 'اردیبهشت', 'خرداد',
     'تیر', 'مرداد', 'شهریور',
     'مهر', 'آبان', 'آذر',
     'دی', 'بهمن', 'اسفند',
+  ];
+
+  /// Weekday names: 0=شنبه (Saturday), 1=یکشنبه (Sunday), ..., 6=جمعه (Friday)
+  String get weekdayName {
+    final jalali = shamsi.Jalali(year, month, day);
+    // shamsi_date returns weekday where 1 = Saturday, 7 = Friday
+    final shamsiWeekday = jalali.weekDay; // 1 = Saturday, 7 = Friday
+    return weekdayNames[shamsiWeekday - 1];
+  }
+
+  /// Weekday names for reference (index: 0=شنبه/Saturday, 1=یکشنبه/Sunday, ..., 6=جمعه/Friday)
+  static const List<String> weekdayNames = [
+    'شنبه', 'یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنجشنبه', 'جمعه',
   ];
 
   static const List<String> weekdayLetters = ['ش', 'ی', 'د', 'س', 'چ', 'پ', 'ج'];

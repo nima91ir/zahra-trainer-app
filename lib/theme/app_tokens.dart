@@ -7,22 +7,22 @@ class AppTokens {
   AppTokens._();
 
   // ─── Colors ───
-  static const Color primary        = Color(0xFF88A36B);
-  static const Color primaryDark    = Color(0xFF6B8452);
-  static const Color accent         = Color(0xFFD4AF37);
-  static const Color surface        = Color(0xFFFAFBF4);
-  static const Color surfaceVariant = Color(0xFFF2F4EE);
-  static const Color background     = Color(0xFFEFF2EA);
-  static const Color onSurface      = Color(0xFF1F2A1E);
-  static const Color onSurfaceVar   = Color(0xFF6B7A6B);
-  static const Color outline        = Color(0xFFC5D0C0);
-  static const Color outlineVariant = Color(0xFFE0E6DD);
-  static const Color success        = Color(0xFF4A6B4E);
-  static const Color successSoft    = Color(0xFFE3F0E5);
-  static const Color warning        = Color(0xFF8B6F3E);
-  static const Color warningSoft    = Color(0xFFFFF3DE);
-  static const Color error          = Color(0xFF8B4A3E);
-  static const Color errorSoft      = Color(0xFFFCE5E0);
+  static const Color primary        = const Color(0xFF88A36B);
+  static const Color primaryDark    = const Color(0xFF6B8452);
+  static const Color accent         = const Color(0xFFD4AF37);
+  static const Color surface        = const Color(0xFFFAFBF4);
+  static const Color surfaceVariant = const Color(0xFFF2F4EE);
+  static const Color background     = const Color(0xFFEFF2EA);
+  static const Color onSurface      = const Color(0xFF1F2A1E);
+  static const Color onSurfaceVar   = const Color(0xFF6B7A6B);
+  static const Color outline        = const Color(0xFFC5D0C0);
+  static const Color outlineVariant = const Color(0xFFE0E6DD);
+  static const Color success        = const Color(0xFF4A6B4E);
+  static const Color successSoft    = const Color(0xFFE3F0E5);
+  static const Color warning        = const Color(0xFF8B6F3E);
+  static const Color warningSoft    = const Color(0xFFFFF3DE);
+  static const Color error          = const Color(0xFF8B4A3E);
+  static const Color errorSoft      = const Color(0xFFFCE5E0);
 
   // ─── Radii ───
   static const double rSm = 8.0;

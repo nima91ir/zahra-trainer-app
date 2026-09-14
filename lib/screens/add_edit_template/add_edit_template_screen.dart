@@ -5,18 +5,27 @@ import '../../data/models/plan_template.dart';
 import '../../state/app_state.dart';
 import '../../theme/app_tokens.dart';
 import '../../utils/persian_numbers.dart';
+import '../../widgets/settings_sheet.dart';
+
+String _persianToEnglishDigits(String input) {
+  const persian = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
+  const english = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
+  String result = input;
+  for (int i = 0; i < persian.length; i++) {
+    result = result.replaceAll(persian[i], english[i]);
+  }
+  return result;
+}
 
 class AddEditTemplateScreen extends StatefulWidget {
   final PlanTemplate? existing;
   const AddEditTemplateScreen({super.key, this.existing});
 
   @override
-  State<AddEditTemplateScreen> createState() =>
-      _AddEditTemplateScreenState();
+  State<AddEditTemplateScreen> createState() => _AddEditTemplateScreenState();
 }
 
-class _AddEditTemplateScreenState
-    extends State<AddEditTemplateScreen> {
+class _AddEditTemplateScreenState extends State<AddEditTemplateScreen> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _nameController;
   late TextEditingController _sessionsController;
@@ -25,12 +34,11 @@ class _AddEditTemplateScreenState
   @override
   void initState() {
     super.initState();
-    final t = widget.existing;
-    _nameController = TextEditingController(text: t?.name ?? '');
+    _nameController = TextEditingController(text: widget.existing?.name ?? '');
     _sessionsController = TextEditingController(
-        text: t != null && t.sessions > 0 ? t.sessions.toString() : '');
+        text: widget.existing?.sessions != null ? fa(widget.existing!.sessions) : '');
     _daysController = TextEditingController(
-        text: t != null && t.days > 0 ? t.days.toString() : '');
+        text: widget.existing?.days != null ? fa(widget.existing!.days) : '');
   }
 
   @override
@@ -41,14 +49,18 @@ class _AddEditTemplateScreenState
     super.dispose();
   }
 
+  void _onChanged() {
+    setState(() {}); // Rebuild to update preview and button state
+  }
+
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
     final state = context.read<AppState>();
     final nav = Navigator.of(context);
     final isEdit = widget.existing != null;
 
-    final sessions = int.parse(_sessionsController.text.trim());
-    final days = int.parse(_daysController.text.trim());
+    final sessions = int.parse(_persianToEnglishDigits(_sessionsController.text));
+    final days = int.parse(_persianToEnglishDigits(_daysController.text));
 
     final template = PlanTemplate(
       id: widget.existing?.id,
@@ -56,46 +68,6 @@ class _AddEditTemplateScreenState
       sessions: sessions,
       days: days,
     );
-
-    // Find how many plans use this template (for warning on edit)
-    final usageCount = isEdit
-        ? state.plans
-            .where((p) => p.templateId == widget.existing!.id)
-            .length
-        : 0;
-
-    if (isEdit && usageCount > 0) {
-      final confirmed = await showDialog<bool>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text(
-            'ذخیره تغییرات؟',
-            style: TextStyle(
-                fontFamily: 'Vazir', fontWeight: FontWeight.w800),
-          ),
-          content: Text(
-            'این قالب در ${fa(usageCount)} برنامه استفاده شده. تغییرات روی برنامه‌های فعال اعمال می‌شود.',
-            style: const TextStyle(fontFamily: 'Vazir', height: 1.8),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('لغو',
-                  style: TextStyle(fontFamily: 'Vazir')),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('ذخیره',
-                  style: TextStyle(
-                      fontFamily: 'Vazir',
-                      color: AppTokens.primary,
-                      fontWeight: FontWeight.w700)),
-            ),
-          ],
-        ),
-      );
-      if (confirmed != true) return;
-    }
 
     if (isEdit) {
       await state.updateTemplate(template);
@@ -108,7 +80,7 @@ class _AddEditTemplateScreenState
         SnackBar(
           content: Text(
             isEdit ? 'قالب ویرایش شد' : 'قالب ساخته شد',
-            style: const TextStyle(fontFamily: 'Vazir'),
+            style: TextStyle(fontFamily: 'Vazir'),
           ),
         ),
       );
@@ -116,44 +88,48 @@ class _AddEditTemplateScreenState
     }
   }
 
-  String _previewText() {
-    final sessions = int.tryParse(_sessionsController.text.trim());
-    final days = int.tryParse(_daysController.text.trim());
-    if (sessions == null || days == null || sessions <= 0 || days <= 0) {
-      return '';
-    }
-    final weeks = days ~/ 7;
-    final rem = days % 7;
-    String weeksText = 'معادل ';
-    if (weeks > 0) weeksText += '${fa(weeks)} هفته';
-    if (rem > 0) {
-      if (weeks > 0) weeksText += ' و ';
-      weeksText += '${fa(rem)} روز';
-    }
-    return weeksText;
-  }
-
   @override
   Widget build(BuildContext context) {
-    final isEdit = widget.existing != null;
     final state = context.watch<AppState>();
-    final name = _nameController.text.trim();
-    final sessions = int.tryParse(_sessionsController.text.trim());
-    final days = int.tryParse(_daysController.text.trim());
-    final hasPreview =
-        name.isNotEmpty && sessions != null && days != null &&
-        sessions > 0 && days > 0;
+    final isEdit = widget.existing != null;
 
-    // Warning for edit mode
-    final usageCount = isEdit
-        ? state.plans
-            .where((p) => p.templateId == widget.existing!.id)
-            .length
-        : 0;
+    // Parse inputs for preview
+    final name = _nameController.text.trim();
+    final sessionsText = _persianToEnglishDigits(_sessionsController.text);
+    final daysText = _persianToEnglishDigits(_daysController.text);
+    
+    final sessions = int.tryParse(sessionsText) ?? 0;
+    final days = int.tryParse(daysText) ?? 0;
+    final isValid = name.isNotEmpty && sessions > 0 && days > 0;
+
+    // Calculate weeks
+    final weeks = days ~/ 7;
+    final remDays = days % 7;
+    String weeksText = '';
+    if (weeks > 0) weeksText += '${fa(weeks)} هفته';
+    if (remDays > 0) {
+      if (weeks > 0) weeksText += ' و ';
+      weeksText += '${fa(remDays)} روز';
+    }
+
+    // Check usage for warning
+    int usageCount = 0;
+    if (isEdit && widget.existing!.id != null) {
+      usageCount = state.plans.where((p) => 
+        p.templateId == widget.existing!.id && 
+        (p.status == 'active' || p.status == 'frozen')
+      ).length;
+    }
 
     return Scaffold(
       appBar: AppBar(
         title: Text(isEdit ? 'ویرایش قالب' : 'افزودن قالب'),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.settings_outlined, size: 22),
+            onPressed: () => showSettingsSheet(context),
+          ),
+        ],
       ),
       body: Form(
         key: _formKey,
@@ -162,119 +138,110 @@ class _AddEditTemplateScreenState
           children: [
             TextFormField(
               controller: _nameController,
-              decoration: const InputDecoration(
+              onChanged: (_) => _onChanged(),
+              decoration: InputDecoration(
                 labelText: 'نام قالب *',
                 hintText: 'مثلاً برنامه لاغری',
               ),
-              onChanged: (_) => setState(() {}),
-              validator: (v) {
-                if (v == null || v.trim().isEmpty) {
-                  return 'نام را وارد کنید';
-                }
-                return null;
-              },
+              validator: (v) => (v == null || v.trim().isEmpty) ? 'نام را وارد کنید' : null,
             ),
-            const SizedBox(height: 14),
+            SizedBox(height: 14),
             TextFormField(
               controller: _sessionsController,
+              onChanged: (_) => _onChanged(),
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'تعداد جلسات *',
                 hintText: '۱۲',
               ),
-              onChanged: (_) => setState(() {}),
               validator: (v) {
-                final n = int.tryParse(v?.trim() ?? '');
-                if (n == null || n <= 0) {
-                  return 'عدد معتبر وارد کنید';
-                }
-                return null;
+                final val = int.tryParse(_persianToEnglishDigits(v ?? ''));
+                return (val == null || val <= 0) ? 'تعداد معتبر وارد کنید' : null;
               },
             ),
-            const SizedBox(height: 14),
+            SizedBox(height: 14),
             TextFormField(
               controller: _daysController,
+              onChanged: (_) => _onChanged(),
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'مدت اعتبار (روز) *',
                 hintText: '۲۸',
               ),
-              onChanged: (_) => setState(() {}),
               validator: (v) {
-                final n = int.tryParse(v?.trim() ?? '');
-                if (n == null || n <= 0) {
-                  return 'عدد معتبر وارد کنید';
-                }
-                return null;
+                final val = int.tryParse(_persianToEnglishDigits(v ?? ''));
+                return (val == null || val <= 0) ? 'مدت معتبر وارد کنید' : null;
               },
             ),
-            const SizedBox(height: 20),
-            if (hasPreview)
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: AppTokens.surfaceVariant,
-                  borderRadius: BorderRadius.circular(AppTokens.rMd),
-                  border: Border.all(
-                      color: AppTokens.primary.withValues(alpha: 0.35),
-                      width: 1.5),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'پیش‌نمایش',
-                      style: TextStyle(
-                        fontFamily: 'Vazir',
-                        fontSize: 11,
-                        fontWeight: FontWeight.w800,
-                        color: AppTokens.primary,
-                        letterSpacing: 1.2,
-                      ),
+            SizedBox(height: 20),
+
+            // Preview Box
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: AppTokens.surface,
+                borderRadius: BorderRadius.circular(AppTokens.rMd),
+                border: Border.all(color: AppTokens.outlineVariant),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'پیش‌نمایش',
+                    style: TextStyle(
+                      fontFamily: 'Vazir',
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      color: AppTokens.primary,
+                      letterSpacing: 0.08,
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      name,
-                      style: const TextStyle(
-                        fontFamily: 'Vazir',
-                        fontSize: 15,
-                        fontWeight: FontWeight.w800,
-                        color: AppTokens.onSurface,
-                      ),
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    name.isEmpty ? '—' : name,
+                    style: TextStyle(
+                      fontFamily: 'Vazir',
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                      color: AppTokens.onSurface,
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '${fa(sessions)} جلسه در ${fa(days)} روز',
-                      style: const TextStyle(
-                        fontFamily: 'Vazir',
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: AppTokens.onSurfaceVar,
-                      ),
+                  ),
+                  SizedBox(height: 6),
+                  Text(
+                    isValid ? '${fa(sessions)} جلسه در ${fa(days)} روز' : 'اطلاعات را وارد کنید',
+                    style: TextStyle(
+                      fontFamily: 'Vazir',
+                      fontSize: 13,
+                      color: isValid ? AppTokens.onSurfaceVar : AppTokens.onSurfaceVar.withValues(alpha: 0.6),
+                      height: 1.7,
                     ),
-                    const SizedBox(height: 8),
+                  ),
+                  if (isValid && weeksText.isNotEmpty) ...[
+                    SizedBox(height: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 4),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
-                        color: AppTokens.surface,
+                        color: AppTokens.surfaceVariant,
                         borderRadius: BorderRadius.circular(AppTokens.rSm),
                       ),
                       child: Text(
-                        _previewText(),
-                        style: const TextStyle(
+                        'معادل $weeksText',
+                        style: TextStyle(
                           fontFamily: 'Vazir',
                           fontSize: 11,
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w800,
                           color: AppTokens.primary,
                         ),
                       ),
                     ),
                   ],
-                ),
+                ],
               ),
+            ),
+
+            // Warning Box
             if (isEdit && usageCount > 0) ...[
-              const SizedBox(height: 16),
+              SizedBox(height: 14),
               Container(
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
@@ -282,8 +249,8 @@ class _AddEditTemplateScreenState
                   borderRadius: BorderRadius.circular(AppTokens.rMd),
                 ),
                 child: Text(
-                  '⚠️ این قالب در ${fa(usageCount)} برنامه استفاده شده. تغییرات روی برنامه‌های فعال اعمال می‌شود.',
-                  style: const TextStyle(
+                  '⚠️ در ${fa(usageCount)} برنامه فعال استفاده شده. تغییرات روی آن‌ها اعمال می‌شود.',
+                  style: TextStyle(
                     fontFamily: 'Vazir',
                     fontSize: 12.5,
                     fontWeight: FontWeight.w700,
@@ -293,23 +260,30 @@ class _AddEditTemplateScreenState
                 ),
               ),
             ],
-            const SizedBox(height: 28),
-            FilledButton.icon(
-              onPressed: _save,
-              icon: const Icon(Icons.check, size: 18),
-              label: Text(isEdit ? 'ذخیره تغییرات' : 'ذخیره قالب'),
-              style: FilledButton.styleFrom(
-                backgroundColor: AppTokens.primary,
-                foregroundColor: Colors.white,
-                minimumSize: const Size.fromHeight(48),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(AppTokens.rLg),
+
+            SizedBox(height: 24),
+
+            // Save Button
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: FilledButton(
+                onPressed: isValid ? _save : null,
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppTokens.primary,
+                  foregroundColor: Colors.white,
+                  disabledBackgroundColor: AppTokens.outlineVariant,
+                  disabledForegroundColor: AppTokens.onSurfaceVar,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppTokens.rLg),
+                  ),
+                  textStyle: TextStyle(
+                    fontFamily: 'Vazir',
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
-                textStyle: const TextStyle(
-                  fontFamily: 'Vazir',
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                ),
+                child: Text(isEdit ? 'ذخیره تغییرات' : 'ذخیره قالب'),
               ),
             ),
           ],
