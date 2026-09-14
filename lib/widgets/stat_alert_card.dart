@@ -24,15 +24,18 @@ class StatAlertCard extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(16),
-      child: Container(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: AppTokens.surface,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: AppTokens.outlineVariant),
+          boxShadow: isZero ? null : AppTokens.shadow1,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Row(
               children: [
@@ -54,7 +57,6 @@ class StatAlertCard extends StatelessWidget {
                 ),
               ],
             ),
-            const Spacer(),
             Text(
               value.toString(),
               textAlign: TextAlign.start,
@@ -63,11 +65,9 @@ class StatAlertCard extends StatelessWidget {
                 fontSize: 28,
                 fontWeight: FontWeight.w900,
                 height: 1,
-                letterSpacing: -1,
                 color: isZero ? AppTokens.outline : AppTokens.onSurface,
               ),
             ),
-            SizedBox(height: 4),
             Text(
               label,
               textAlign: TextAlign.start,

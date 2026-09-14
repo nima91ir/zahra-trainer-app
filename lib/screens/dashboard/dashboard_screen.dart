@@ -258,7 +258,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       body: SafeArea(
         top: false,
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, AppTokens.s32),
           children: [
             // Welcome
             Text(
@@ -425,7 +425,7 @@ class _SectionLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Text(
         text,
         style: TextStyle(
@@ -489,8 +489,11 @@ class _BonusBanner extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 // Chevron (start side in RTL)
-                Icon(Icons.chevron_right,
-                    color: Colors.white.withValues(alpha: 0.7), size: 22),
+                Tooltip(
+                  message: 'مشاهده',
+                  child: Icon(Icons.chevron_right,
+                      color: Colors.white.withValues(alpha: 0.7), size: 22),
+                ),
                 SizedBox(width: 14),
                 // Body column
                 Expanded(
@@ -505,6 +508,13 @@ class _BonusBanner extends StatelessWidget {
                           fontSize: 12.5,
                           fontWeight: FontWeight.w600,
                           color: Colors.white.withValues(alpha: 0.88),
+                          shadows: const [
+                            Shadow(
+                              color: Color(0x66000000),
+                              offset: Offset(0, 1),
+                              blurRadius: 2,
+                            ),
+                          ],
                         ),
                       ),
                       SizedBox(height: 2),
@@ -517,6 +527,13 @@ class _BonusBanner extends StatelessWidget {
                           fontWeight: FontWeight.w900,
                           color: Colors.white,
                           height: 1,
+                          shadows: const [
+                            Shadow(
+                              color: Color(0x66000000),
+                              offset: Offset(0, 1),
+                              blurRadius: 2,
+                            ),
+                          ],
                         ),
                       ),
                     ],
@@ -563,8 +580,6 @@ class _TotalClientsCard extends StatelessWidget {
         ),
         child: Row(
           children: [
-            Icon(Icons.chevron_right,
-                color: AppTokens.onSurfaceVar, size: 20),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -594,8 +609,11 @@ class _TotalClientsCard extends StatelessWidget {
                 ],
               ),
             ),
-            Icon(Icons.chevron_left,
-                color: AppTokens.onSurfaceVar, size: 20),
+            Tooltip(
+              message: 'مشاهده کلاینت‌ها',
+              child: Icon(Icons.chevron_left,
+                  color: AppTokens.onSurfaceVar, size: 20),
+            ),
           ],
         ),
       ),

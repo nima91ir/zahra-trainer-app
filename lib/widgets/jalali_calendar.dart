@@ -82,7 +82,7 @@ class JalaliCalendar extends StatelessWidget {
           // Header
           Row(
             children: [
-              _NavButton(icon: Icons.chevron_right, onTap: onPrevMonth),
+              _NavButton(icon: Icons.chevron_right, onTap: onPrevMonth, tooltip: 'ماه قبل'),
               Expanded(
                 child: Center(
                   child: Text(
@@ -96,7 +96,7 @@ class JalaliCalendar extends StatelessWidget {
                   ),
                 ),
               ),
-              _NavButton(icon: Icons.chevron_left, onTap: onNextMonth),
+              _NavButton(icon: Icons.chevron_left, onTap: onNextMonth, tooltip: 'ماه بعد'),
             ],
           ),
           SizedBox(height: 12),
@@ -126,9 +126,9 @@ class JalaliCalendar extends StatelessWidget {
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             crossAxisCount: 7,
-            mainAxisSpacing: 3,
-            crossAxisSpacing: 3,
-            childAspectRatio: 1,
+            mainAxisSpacing: 2,
+            crossAxisSpacing: 2,
+            childAspectRatio: 0.85,
             children: cells,
           ),
 
@@ -153,22 +153,26 @@ class JalaliCalendar extends StatelessWidget {
 class _NavButton extends StatelessWidget {
   final IconData icon;
   final VoidCallback onTap;
-  const _NavButton({required this.icon, required this.onTap});
+  final String tooltip;
+  const _NavButton({required this.icon, required this.onTap, required this.tooltip});
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
-      child: Container(
-        width: 32,
-        height: 32,
-        decoration: BoxDecoration(
-          color: AppTokens.background,
-          shape: BoxShape.circle,
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppTokens.rMd),
+        child: Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: AppTokens.background,
+            shape: BoxShape.circle,
+          ),
+          alignment: Alignment.center,
+          child: Icon(icon, size: 18, color: AppTokens.onSurfaceVar),
         ),
-        alignment: Alignment.center,
-        child: Icon(icon, size: 16, color: AppTokens.onSurfaceVar),
       ),
     );
   }
@@ -250,55 +254,65 @@ class _DayCell extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(10),
-      child: Container(
-        decoration: BoxDecoration(
-          color: bg,
-          borderRadius: BorderRadius.circular(10),
-          border: border,
-        ),
-        alignment: Alignment.center,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              fa(day),
-              style: TextStyle(
-                fontFamily: 'Vazir',
-                fontSize: 12.5,
-                fontWeight: weight,
-                color: fg,
+      child: Semantics(
+        label: '$day ${_statusLabel(presentCount, absentCount)}',
+        child: Container(
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: BorderRadius.circular(10),
+            border: border,
+          ),
+          alignment: Alignment.center,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                fa(day),
+                style: TextStyle(
+                  fontFamily: 'Vazir',
+                  fontSize: 12.5,
+                  fontWeight: weight,
+                  color: fg,
+                ),
               ),
-            ),
-            SizedBox(height: 2),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (presentCount > 0) ...[
-                  Container(
-                    width: 4,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: dotColor1,
-                      shape: BoxShape.circle,
+              SizedBox(height: 2),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (presentCount > 0) ...[
+                    Container(
+                      width: 4,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: dotColor1,
+                        shape: BoxShape.circle,
+                      ),
                     ),
-                  ),
-                  SizedBox(width: 2),
+                    SizedBox(width: 2),
+                  ],
+                  if (absentCount > 0)
+                    Container(
+                      width: 4,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: dotColor2,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
                 ],
-                if (absentCount > 0)
-                  Container(
-                    width: 4,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: dotColor2,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-              ],
-            ),
-          ],
+              ),
+            ],
+          ),
         ),
       ),
     );
+  }
+
+  String _statusLabel(int presentCount, int absentCount) {
+    final parts = <String>[];
+    if (presentCount > 0) parts.add('حاضر $presentCount');
+    if (absentCount > 0) parts.add('غایب $absentCount');
+    return parts.isEmpty ? 'بدون وضعیت' : parts.join('، ');
   }
 }
 

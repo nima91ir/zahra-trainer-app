@@ -14,7 +14,7 @@ class AppTokens {
   static const Color surfaceVariant = const Color(0xFFF2F4EE);
   static const Color background     = const Color(0xFFEFF2EA);
   static const Color onSurface      = const Color(0xFF1F2A1E);
-  static const Color onSurfaceVar   = const Color(0xFF6B7A6B);
+  static const Color onSurfaceVar   = Color(0xFF4A5A4A);
   static const Color outline        = const Color(0xFFC5D0C0);
   static const Color outlineVariant = const Color(0xFFE0E6DD);
   static const Color success        = const Color(0xFF4A6B4E);

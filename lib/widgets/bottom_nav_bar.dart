@@ -19,7 +19,7 @@ class BottomNavBar extends StatelessWidget {
       selectedIndex: currentIndex,
       onDestinationSelected: onTap,
       backgroundColor: AppTokens.surface,
-      indicatorColor: AppTokens.primary.withValues(alpha: 0.14),
+      indicatorColor: AppTokens.primary.withValues(alpha: 0.24),
       elevation: 0,
       height: 68,
       labelBehavior:
