@@ -27,7 +27,7 @@ class _PastAttendanceScreenState extends State<PastAttendanceScreen> {
   @override
   void initState() {
     super.initState();
-    final today = Jalali.now();
+    final today = Jalali.fromDateTime(DateTime.now());
     _viewYear = today.year;
     _viewMonth = today.month;
     _loadDraft();
@@ -49,7 +49,7 @@ class _PastAttendanceScreenState extends State<PastAttendanceScreen> {
       final month = int.tryParse(parts[1]);
       final day = int.tryParse(parts[2]);
       if (year != null && month != null && day != null) {
-        final today = Jalali.now();
+    final today = Jalali.fromDateTime(DateTime.now());
         if (year > today.year ||
             (year == today.year && month > today.month) ||
             (year == today.year && month == today.month && day > today.day)) {
@@ -117,7 +117,7 @@ class _PastAttendanceScreenState extends State<PastAttendanceScreen> {
     final firstWeekDay = jDate.weekDay; // 1=Shanbe, 7=Jomeh
     final leadingEmptyDays = firstWeekDay - 1;
     
-    final today = Jalali.now();
+    final today = Jalali.fromDateTime(DateTime.now());
 
     // Get month name from your custom utility for consistency
     final monthName = jc.JalaliDate(_viewYear, _viewMonth, 1).monthName;

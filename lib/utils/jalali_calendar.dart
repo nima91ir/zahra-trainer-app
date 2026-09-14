@@ -12,8 +12,9 @@ class JalaliDate {
 
   /// Today's Jalali date.
   factory JalaliDate.today() {
-    final now = shamsi.Jalali.now();
-    return JalaliDate(now.year, now.month, now.day);
+    final now = DateTime.now();
+    final jalali = shamsi.Jalali.fromDateTime(now);
+    return JalaliDate(jalali.year, jalali.month, jalali.day);
   }
 
   /// Parses a Jalali string like \'۱۴۰۵/۰۶/۲۱\' or \'1405/06/21\'.
