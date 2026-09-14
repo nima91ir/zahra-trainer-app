@@ -2,8 +2,8 @@ name: Deploy Flutter Web to GitHub Pages
 
 on:
   push:
-    branches:
-      - master
+    branches: [ master ]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -11,41 +11,38 @@ permissions:
   id-token: write
 
 concurrency:
-  group: pages
+  group: "pages"
   cancel-in-progress: false
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
+      - uses: actions/checkout@v4
+      
+      - uses: subosito/flutter-action@v2
         with:
-          flutter-version: "stable"
-
-      - name: Cache pub dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.pub-cache
-            ${{ github.workspace }}/.dart_tool
-          key: flutter-pub-${{ hashFiles('**/pubspec.lock') }}
-          restore-keys: |
-            flutter-pub-
-
-      - name: Get dependencies
+          flutter-version: '3.47.2'
+          channel: 'stable'
+      
+      - name: Setup Myket mirror
+        run: |
+          echo "PUB_HOSTED_URL=https://pub.myket.ir" >> $GITHUB_ENV
+          echo "FLUTTER_STORAGE_BASE_URL=https://pub.myket.ir" >> $GITHUB_ENV
+      
+      - name: Install dependencies
         run: flutter pub get
-
+      
       - name: Build web
-        run: flutter build web --release --base-href /${{ github.event.repository.name }}/
-
+        run: flutter build web --release --base-href /zahra-trainer-app/
+      
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+      
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: build/web
+          path: './build/web'
 
   deploy:
     environment:
