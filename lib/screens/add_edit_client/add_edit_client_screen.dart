@@ -6,6 +6,7 @@ import '../../state/app_state.dart';
 import '../../theme/app_tokens.dart';
 import '../../utils/jalali_calendar.dart' as jc;
 import '../../utils/persian_numbers.dart';
+import '../../widgets/jalali_calendar.dart';
 
 class AddEditClientScreen extends StatefulWidget {
   final Client? existing;
@@ -96,31 +97,54 @@ class _AddEditClientScreenState extends State<AddEditClientScreen> {
   }
 
   Future<void> _selectDate() async {
-    final controller = TextEditingController(text: _selectedStartDate);
-    try {
-      final result = await showDialog<String>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: Text('تاریخ شروع', style: TextStyle(fontFamily: 'Vazir', fontWeight: FontWeight.w800)),
-          content: TextField(
-            controller: controller,
-            decoration: InputDecoration(hintText: '1405/06/21'),
-            style: TextStyle(fontFamily: 'Vazir'),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: Text('لغو', style: TextStyle(fontFamily: 'Vazir'))),
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, controller.text),
-              child: Text('تایید', style: TextStyle(fontFamily: 'Vazir', color: AppTokens.primary, fontWeight: FontWeight.w700)),
-            ),
-          ],
-        ),
-      );
-      if (result != null && result.isNotEmpty) {
-        setState(() => _selectedStartDate = result);
-      }
-    } finally {
-      controller.dispose();
+    final picked = await showDialog<String>(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            var viewYear = jc.JalaliDate.today().year;
+            var viewMonth = jc.JalaliDate.today().month;
+            String? selected;
+
+            return AlertDialog(
+              title: Text('تاریخ شروع', style: TextStyle(fontFamily: 'Vazir', fontWeight: FontWeight.w800)),
+              content: SizedBox(
+                width: 320,
+                height: 360,
+                child: JalaliCalendar(
+                  year: viewYear,
+                  month: viewMonth,
+                  selectedDate: selected,
+                  onPrevMonth: () {
+                    final next = jc.JalaliDate(viewYear, viewMonth, 1).prevMonth();
+                    setState(() {
+                      viewYear = next.year;
+                      viewMonth = next.month;
+                    });
+                  },
+                  onNextMonth: () {
+                    final next = jc.JalaliDate(viewYear, viewMonth, 1).nextMonth();
+                    setState(() {
+                      viewYear = next.year;
+                      viewMonth = next.month;
+                    });
+                  },
+                  onDayTap: (dateStr) {
+                    selected = dateStr;
+                    Navigator.pop(ctx, dateStr);
+                  },
+                ),
+              ),
+              actions: [
+                TextButton(onPressed: () => Navigator.pop(ctx), child: Text('لغو', style: TextStyle(fontFamily: 'Vazir'))),
+              ],
+            );
+          },
+        );
+      },
+    );
+    if (picked != null && picked.isNotEmpty) {
+      setState(() => _selectedStartDate = picked);
     }
   }
 

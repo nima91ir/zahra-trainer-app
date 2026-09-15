@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:sembast/sembast.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:shamsi_date/shamsi_date.dart' as shamsi;
 
 import '../data/database.dart';
 import '../data/models/client.dart';
@@ -274,6 +275,7 @@ class AppState extends ChangeNotifier {
     required int templateId,
     required String startDate,
   }) async {
+    print('addPlan: clientId=$clientId, templateId=$templateId, startDate=$startDate');
     final template = templateById(templateId);
     if (template == null) return null;
 
@@ -302,13 +304,52 @@ class AppState extends ChangeNotifier {
       return id;
     } else {
       // Create active
+      final parsed = jc.JalaliDate.tryParse(startDate);
+      final today = jc.JalaliDate.today();
+      print('addPlan: parsed=$parsed, today=$today');
+
+      int elapsedDays = 0;
+      int pastAttendanceCount = 0;
+      if (parsed != null) {
+        // Elapsed days between startDate and today (inclusive of start, exclusive of today if past)
+        final start = parsed;
+        final isPast = start.year < today.year ||
+            (start.year == today.year && start.month < today.month) ||
+            (start.year == today.year &&
+                start.month == today.month &&
+                start.day < today.day);
+        print('addPlan: isPast=$isPast, start=$start, today=$today');
+        
+        if (isPast) {
+          final startJdn = shamsi.Jalali(start.year, start.month, start.day).julianDayNumber;
+          final todayJdn = shamsi.Jalali(today.year, today.month, today.day).julianDayNumber;
+          elapsedDays = (todayJdn - startJdn).clamp(0, template.days);
+
+          final normalizedStart = start.toString();
+          final normalizedToday = today.toString();
+          pastAttendanceCount = attendance
+              .where((a) =>
+                  a.clientId == clientId &&
+                  a.date.compareTo(normalizedStart) >= 0 &&
+                  a.date.compareTo(normalizedToday) <= 0 &&
+                  (a.status == 'present' || a.status == 'absent'))
+              .length;
+          print('addPlan: elapsedDays=$elapsedDays, pastAttendanceCount=$pastAttendanceCount');
+        }
+      }
+
+      final remainingDays = (template.days - elapsedDays).clamp(0, template.days);
+      final remainingSessions =
+          (template.sessions - pastAttendanceCount).clamp(0, template.sessions);
+      print('addPlan: remainingDays=$remainingDays, remainingSessions=$remainingSessions');
+
       final plan = ClientPlan(
         clientId: clientId,
         templateId: templateId,
         startDate: startDate,
         sessions: template.sessions,
-        days: template.days,
-        remaining: template.sessions,
+        days: remainingDays,
+        remaining: remainingSessions,
         status: 'active',
       );
       final id = await _db.insertPlan(plan);
@@ -574,11 +615,11 @@ class AppState extends ChangeNotifier {
     }
 
     // ─── Tags ───
-    await addTag(const Tag(emoji: '🏋️', name: 'باشگاه'));
-    await addTag(const Tag(emoji: '💻', name: 'آنلاین'));
-    await addTag(const Tag(emoji: '🌅', name: 'صبح‌ها'));
-    await addTag(const Tag(emoji: '🚴', name: 'خصوصی'));
-    await addTag(const Tag(emoji: '🧘', name: 'اصلاحی'));
+    await addTag(const Tag(name: 'باشگاه'));
+    await addTag(const Tag(name: 'آنلاین'));
+    await addTag(const Tag(name: 'صبح‌ها'));
+    await addTag(const Tag(name: 'خصوصی'));
+    await addTag(const Tag(name: 'اصلاحی'));
 
     // Look up their ids
     int tagId(String name) {

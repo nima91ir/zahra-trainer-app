@@ -14,14 +14,6 @@ class TagsScreen extends StatefulWidget {
 }
 
 class _TagsScreenState extends State<TagsScreen> {
-  static const List<String> _emojis = [
-    '🏋️', '💻', '🌅', '🚴', '🧘', '⚽',
-    '🏊', '🤸', '💪', '🩺', '🌙', '☀️',
-    '🎯', '🏆', '⭐', '❤️', '🔥', '🌸',
-    '🍎', '🥗', '📅', '🕐', '🏠', '📱',
-  ];
-
-  String _newEmoji = '🏋️';
   final TextEditingController _nameController =
       TextEditingController();
 
@@ -52,7 +44,7 @@ class _TagsScreenState extends State<TagsScreen> {
       );
       return;
     }
-    await state.addTag(Tag(emoji: _newEmoji, name: name));
+    await state.addTag(Tag(name: name));
     _nameController.clear();
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -78,7 +70,7 @@ class _TagsScreenState extends State<TagsScreen> {
               TextStyle(fontFamily: 'Vazir', fontWeight: FontWeight.w800),
         ),
         content: Text(
-          'آیا از حذف «${tag.emoji} ${tag.name}» اطمینان داری؟$warning',
+          'آیا از حذف «${tag.name}» اطمینان داری؟$warning',
           style: TextStyle(fontFamily: 'Vazir', height: 1.8),
         ),
         actions: [
@@ -162,20 +154,6 @@ class _TagsScreenState extends State<TagsScreen> {
                 ),
                 child: Row(
                   children: [
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: AppTokens.primary.withValues(alpha: 0.14),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      alignment: Alignment.center,
-                      child: Text(
-                        tag.emoji,
-                        style: TextStyle(fontSize: 20),
-                      ),
-                    ),
-                    SizedBox(width: 12),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -226,72 +204,37 @@ class _TagsScreenState extends State<TagsScreen> {
                 width: 1.5,
               ),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
-                  children: [
-                    // Emoji preview / dropdown
-                    PopupMenuButton<String>(
-                      onSelected: (e) =>
-                          setState(() => _newEmoji = e),
-                      itemBuilder: (ctx) => _emojis
-                          .map((e) => PopupMenuItem(
-                                value: e,
-                                child: Text(e,
-                                    style:
-                                        TextStyle(fontSize: 22)),
-                              ))
-                          .toList(),
-                      child: Container(
-                        width: 52,
-                        height: 52,
-                        decoration: BoxDecoration(
-                          color: AppTokens.surface,
-                          borderRadius: BorderRadius.circular(12),
-                          border:
-                              Border.all(color: AppTokens.outline),
-                        ),
-                        alignment: Alignment.center,
-                        child: Text(
-                          _newEmoji,
-                          style: TextStyle(fontSize: 24),
-                        ),
-                      ),
-                    ),
-                    SizedBox(width: 8),
-                    Expanded(
-                      child: TextField(
-                        controller: _nameController,
-                        decoration: InputDecoration(
-                          hintText: 'نام برچسب (مثلاً باشگاه)',
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                SizedBox(height: 12),
-                FilledButton.icon(
-                  onPressed: _add,
-                  icon: Icon(Icons.add, size: 18),
-                  label: Text('افزودن برچسب'),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppTokens.primary,
-                    foregroundColor: Colors.white,
-                    minimumSize: const Size.fromHeight(46),
-                    shape: RoundedRectangleBorder(
-                      borderRadius:
-                          BorderRadius.circular(AppTokens.rMd),
-                    ),
-                    textStyle: TextStyle(
-                      fontFamily: 'Vazir',
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  TextField(
+                    controller: _nameController,
+                    decoration: const InputDecoration(
+                      hintText: 'نام برچسب (مثلاً باشگاه)',
                     ),
                   ),
-                ),
-              ],
-            ),
+                  SizedBox(height: 12),
+                  FilledButton.icon(
+                    onPressed: _add,
+                    icon: Icon(Icons.add, size: 18),
+                    label: Text('افزودن برچسب'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppTokens.primary,
+                      foregroundColor: Colors.white,
+                      minimumSize: const Size.fromHeight(46),
+                      shape: RoundedRectangleBorder(
+                        borderRadius:
+                            BorderRadius.circular(AppTokens.rMd),
+                      ),
+                      textStyle: TextStyle(
+                        fontFamily: 'Vazir',
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
           ),
         ],
       ),

@@ -18,7 +18,7 @@ class ClientsScreen extends StatefulWidget {
 
 class _ClientsScreenState extends State<ClientsScreen> {
   String _searchQuery = '';
-  int? _selectedTagId;
+  final Set<int> _selectedTagIds = {};
 
   @override
   Widget build(BuildContext context) {
@@ -35,8 +35,8 @@ class _ClientsScreenState extends State<ClientsScreen> {
           c.name.contains(_searchQuery) ||
           (c.contact?.contains(_searchQuery) ?? false);
       bool matchesTag = true;
-      if (_selectedTagId != null) {
-        matchesTag = c.tagIds.contains(_selectedTagId);
+      if (_selectedTagIds.isNotEmpty) {
+        matchesTag = _selectedTagIds.every((tagId) => c.tagIds.contains(tagId));
       }
       return matchesSearch && matchesTag;
     }).toList();
@@ -92,16 +92,25 @@ class _ClientsScreenState extends State<ClientsScreen> {
                         child: ListView(
                           scrollDirection: Axis.horizontal,
                           children: [
-                            _FilterChip(label: 'همه', count: validClients.length, isActive: _selectedTagId == null, onTap: () => setState(() => _selectedTagId = null)),
-                            const SizedBox(width: 8),
-                            ...state.tags.map((tag) {
-                              final count = validClients.where((c) => c.tagIds.contains(tag.id)).length;
-                              if (count == 0 && _selectedTagId != tag.id) return const SizedBox.shrink();
-                              return Padding(
-                                padding: const EdgeInsets.only(left: 8),
-                                child: _FilterChip(label: tag.name, count: count, isActive: _selectedTagId == tag.id, onTap: () => setState(() => _selectedTagId = tag.id)),
-                              );
-                            }),
+                             _FilterChip(label: 'همه', count: validClients.length, isActive: _selectedTagIds.isEmpty, onTap: () => setState(() => _selectedTagIds.clear())),
+                             const SizedBox(width: 8),
+                             ...state.tags.map((tag) {
+                               final count = validClients.where((c) => c.tagIds.contains(tag.id)).length;
+                               if (count == 0 && !_selectedTagIds.contains(tag.id)) return const SizedBox.shrink();
+                               final isActive = _selectedTagIds.contains(tag.id);
+                               return Padding(
+                                 padding: const EdgeInsets.only(left: 8),
+                                 child: _FilterChip(label: tag.name, count: count, isActive: isActive, onTap: () {
+                                   setState(() {
+                                     if (isActive) {
+                                       _selectedTagIds.remove(tag.id);
+                                     } else {
+                                       _selectedTagIds.add(tag.id!);
+                                     }
+                                   });
+                                 }),
+                               );
+                             }),
                           ],
                         ),
                       ),

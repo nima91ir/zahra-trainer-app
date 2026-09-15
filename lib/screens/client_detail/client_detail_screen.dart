@@ -832,7 +832,7 @@ class _PastPlansSection extends StatelessWidget {
                     children: [
                       Text(template?.name ?? 'برنامه', style: TextStyle(fontFamily: 'Vazir', fontSize: 13, fontWeight: FontWeight.w800, color: AppTokens.onSurface)),
                       SizedBox(height: 2),
-                      Text('شروع: ${p.startDate ?? '—'}', style: TextStyle(fontFamily: 'Vazir', fontSize: 11, color: AppTokens.onSurfaceVar)),
+                      Text('شروع: ${p.startDate ?? '—'} · ${fa(p.days)} روز', style: TextStyle(fontFamily: 'Vazir', fontSize: 11, color: AppTokens.onSurfaceVar)),
                     ],
                   ),
                 ),
