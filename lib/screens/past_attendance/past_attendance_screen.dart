@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:shamsi_date/shamsi_date.dart' as shamsi;
 
 import '../../state/app_state.dart';
 import '../../theme/app_tokens.dart';
@@ -40,7 +39,7 @@ class _PastAttendanceScreenState extends State<PastAttendanceScreen> {
     final start = jc.JalaliDate.tryParse(activePlan.startDate!);
     if (start == null) return;
 
-    final startJdn = shamsi.Jalali(start.year, start.month, start.day).julianDayNumber;
+    final startJdn = start.toJdn();
     final template = state.templateById(activePlan.templateId);
     final duration = template?.days ?? activePlan.days;
     final endJdn = startJdn + duration - 1;
@@ -48,7 +47,7 @@ class _PastAttendanceScreenState extends State<PastAttendanceScreen> {
     for (final rec in state.attendanceForClient(widget.clientId)) {
       final recDate = jc.JalaliDate.tryParse(rec.date);
       if (recDate == null) continue;
-      final recJdn = shamsi.Jalali(recDate.year, recDate.month, recDate.day).julianDayNumber;
+      final recJdn = recDate.toJdn();
       if (recJdn < startJdn || recJdn > endJdn) continue;
       _draftAttendance[rec.date] = rec.status;
     }
@@ -243,6 +242,26 @@ class _PastAttendanceScreenState extends State<PastAttendanceScreen> {
             ),
 
           SizedBox(height: 24),
+
+          if (_draftAttendance.isNotEmpty)
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: OutlinedButton(
+                onPressed: () {
+                  setState(() {
+                    _draftAttendance.clear();
+                  });
+                },
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppTokens.onSurfaceVar,
+                  side: BorderSide(color: AppTokens.outlineVariant),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTokens.rLg)),
+                  textStyle: TextStyle(fontFamily: 'Vazir', fontSize: 14, fontWeight: FontWeight.w700),
+                ),
+                child: Text('بازگرداندن تغییرات'),
+              ),
+            ),
 
           // Save Button
           SizedBox(

@@ -1,9 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:sembast/sembast.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:shamsi_date/shamsi_date.dart' as shamsi;
 
-import '../data/database.dart';
+import '../data/app_repository.dart';
 import '../data/models/client.dart';
 import '../data/models/tag.dart';
 import '../data/models/plan_template.dart';
@@ -14,7 +13,9 @@ import '../utils/jalali_calendar.dart' as jc;
 /// Central app state.
 /// Every mutation calls notifyListeners() at the end.
 class AppState extends ChangeNotifier {
-  final AppDatabase _db = AppDatabase.instance;
+  final AppRepository _repository;
+
+  AppState(this._repository);
 
   // ─── Raw data ───
   List<Client> clients = [];
@@ -23,10 +24,21 @@ class AppState extends ChangeNotifier {
   List<AttendanceRecord> attendance = [];
   List<Tag> tags = [];
 
+  // ─── Indexes for O(1) lookups ───
+  final Map<int, Client> _clientMap = {};
+  final Map<int, PlanTemplate> _templateMap = {};
+  final Map<int, Tag> _tagMap = {};
+
+  Client? clientById(int id) => _clientMap[id];
+  Tag? tagById(int id) => _tagMap[id];
+  PlanTemplate? templateById(int id) => _templateMap[id];
+
   // ─── UI state ───
   bool isLoading = false;
   int activeTabIndex = 0;
   String userName = '';
+  String? _loadError;
+  String? get loadError => _loadError;
 
   static const String _prefsKeyUserName = 'user_name';
 
@@ -38,6 +50,7 @@ class AppState extends ChangeNotifier {
 
   Future<void> loadAll() async {
     isLoading = true;
+    _loadError = null;
     notifyListeners();
     try {
       await Future.wait([
@@ -49,7 +62,8 @@ class AppState extends ChangeNotifier {
         _loadUserName(),
       ]);
     } catch (e) {
-      // Prevent the UI from staying stuck on loading if any store fails.
+      _loadError = e.toString();
+      debugPrint('loadAll failed: $e');
     } finally {
       isLoading = false;
       notifyListeners();
@@ -57,19 +71,25 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> _loadClients() async {
-    clients = await _db.getAllClients();
+    clients = await _repository.getAllClients();
+    _clientMap
+      ..clear()
+      ..addAll({for (final c in clients) c.id!: c});
   }
 
   Future<void> _loadTemplates() async {
-    templates = await _db.getAllTemplates();
+    templates = await _repository.getAllTemplates();
+    _templateMap
+      ..clear()
+      ..addAll({for (final t in templates) t.id!: t});
   }
 
   Future<void> _loadPlans() async {
-    plans = await _db.getAllPlans();
+    plans = await _repository.getAllPlans();
   }
 
   Future<void> _loadAttendance() async {
-    final all = await _db.getAllAttendance();
+    final all = await _repository.getAllAttendance();
 
     final bestByKey = <String, AttendanceRecord>{};
     final toDelete = <AttendanceRecord>[];
@@ -94,14 +114,17 @@ class AppState extends ChangeNotifier {
     }
 
     for (final r in toDelete) {
-      if (r.id != null) await _db.deleteAttendance(r.id!);
+      if (r.id != null) await _repository.deleteAttendance(r.id!);
     }
 
     attendance = bestByKey.values.toList();
   }
 
   Future<void> _loadTags() async {
-    tags = await _db.getAllTags();
+    tags = await _repository.getAllTags();
+    _tagMap
+      ..clear()
+      ..addAll({for (final t in tags) t.id!: t});
   }
 
   Future<void> _loadUserName() async {
@@ -124,27 +147,6 @@ class AppState extends ChangeNotifier {
   }
 
   // ─── Convenience getters ───
-  Client? clientById(int id) {
-    for (final c in clients) {
-      if (c.id == id) return c;
-    }
-    return null;
-  }
-
-  Tag? tagById(int id) {
-    for (final t in tags) {
-      if (t.id == id) return t;
-    }
-    return null;
-  }
-
-  PlanTemplate? templateById(int id) {
-    for (final t in templates) {
-      if (t.id == id) return t;
-    }
-    return null;
-  }
-
   List<ClientPlan> plansForClient(int clientId) =>
       plans.where((p) => p.clientId == clientId).toList();
 
@@ -175,23 +177,28 @@ class AppState extends ChangeNotifier {
   // ═══════════════ Client mutations ═══════════════
 
   Future<int> addClient(Client client) async {
-    final id = await _db.insertClient(client);
+    final id = await _repository.insertClient(client);
     clients.add(client.copyWith(id: id));
+    _clientMap[id] = client.copyWith(id: id);
     notifyListeners();
     return id;
   }
 
   Future<void> updateClient(Client client) async {
     if (client.id == null) return;
-    await _db.updateClient(client);
+    await _repository.updateClient(client);
     final idx = clients.indexWhere((c) => c.id == client.id);
-    if (idx != -1) clients[idx] = client;
+    if (idx != -1) {
+      clients[idx] = client;
+      _clientMap[client.id!] = client;
+    }
     notifyListeners();
   }
 
   Future<void> deleteClient(int clientId) async {
-    await _db.deleteClientCascade(clientId);
+    await _repository.deleteClientCascade(clientId);
     clients.removeWhere((c) => c.id == clientId);
+    _clientMap.remove(clientId);
     plans.removeWhere((p) => p.clientId == clientId);
     attendance.removeWhere((a) => a.clientId == clientId);
     notifyListeners();
@@ -205,21 +212,24 @@ class AppState extends ChangeNotifier {
     if (next < 0) return;
     final updated = current.copyWith(bonusSessions: next);
     clients[idx] = updated;
-    await _db.updateClient(updated);
+    _clientMap[clientId] = updated;
+    await _repository.updateClient(updated);
     notifyListeners();
   }
 
   // ═══════════════ Tag mutations ═══════════════
 
   Future<void> addTag(Tag tag) async {
-    final id = await _db.insertTag(tag);
+    final id = await _repository.insertTag(tag);
     tags.add(tag.copyWith(id: id));
+    _tagMap[id] = tag.copyWith(id: id);
     notifyListeners();
   }
 
   Future<void> deleteTag(int tagId) async {
-    await _db.deleteTag(tagId);
+    await _repository.deleteTag(tagId);
     tags.removeWhere((t) => t.id == tagId);
+    _tagMap.remove(tagId);
     // Strip this tagId from all clients that referenced it
     final futures = <Future>[];
     for (int i = 0; i < clients.length; i++) {
@@ -228,7 +238,8 @@ class AppState extends ChangeNotifier {
         final updated =
             c.copyWith(tagIds: c.tagIds.where((id) => id != tagId).toList());
         clients[i] = updated;
-        futures.add(_db.updateClient(updated));
+        _clientMap[updated.id!] = updated;
+        futures.add(_repository.updateClient(updated));
       }
     }
     await Future.wait(futures);
@@ -238,8 +249,9 @@ class AppState extends ChangeNotifier {
   // ═══════════════ Template mutations ═══════════════
 
   Future<void> addTemplate(PlanTemplate template) async {
-    final id = await _db.insertTemplate(template);
+    final id = await _repository.insertTemplate(template);
     templates.add(template.copyWith(id: id));
+    _templateMap[id] = template.copyWith(id: id);
     notifyListeners();
   }
 
@@ -256,7 +268,8 @@ class AppState extends ChangeNotifier {
     if (idx == -1) return;
     final old = templates[idx];
     templates[idx] = template;
-    await _db.updateTemplate(template);
+    _templateMap[template.id!] = template;
+    await _repository.updateTemplate(template);
 
     // Propagate to affected plans
     for (int i = 0; i < plans.length; i++) {
@@ -274,7 +287,7 @@ class AppState extends ChangeNotifier {
         remaining: newRemaining,
       );
       plans[i] = updated;
-      await _db.updatePlan(updated);
+      await _repository.updatePlan(updated);
     }
 
     notifyListeners();
@@ -284,8 +297,9 @@ class AppState extends ChangeNotifier {
   /// reference it. Existing plans keep working with their stored
   /// sessions/days values.
   Future<void> deleteTemplate(int templateId) async {
-    await _db.deleteTemplate(templateId);
+    await _repository.deleteTemplate(templateId);
     templates.removeWhere((t) => t.id == templateId);
+    _templateMap.remove(templateId);
     notifyListeners();
   }
 
@@ -325,7 +339,7 @@ class AppState extends ChangeNotifier {
         status: 'queued',
         queueOrder: nextOrder,
       );
-      final id = await _db.insertPlan(queued);
+      final id = await _repository.insertPlan(queued);
       plans.add(queued.copyWith(id: id));
       notifyListeners();
       return id;
@@ -345,8 +359,8 @@ class AppState extends ChangeNotifier {
                 start.day < today.day);
         
         if (isPast) {
-          final startJdn = shamsi.Jalali(start.year, start.month, start.day).julianDayNumber;
-          final todayJdn = shamsi.Jalali(today.year, today.month, today.day).julianDayNumber;
+          final startJdn = start.toJdn();
+          final todayJdn = today.toJdn();
           elapsedDays = (todayJdn - startJdn).clamp(0, template.days);
 
           final normalizedStart = start.toString();
@@ -374,7 +388,7 @@ class AppState extends ChangeNotifier {
         remaining: remainingSessions,
         status: 'active',
       );
-      final id = await _db.insertPlan(plan);
+      final id = await _repository.insertPlan(plan);
       plans.add(plan.copyWith(id: id));
       notifyListeners();
       return id;
@@ -386,7 +400,7 @@ class AppState extends ChangeNotifier {
     if (idx == -1) return;
     final removed = plans[idx];
     plans.removeAt(idx);
-    await _db.deletePlan(planId);
+    await _repository.deletePlan(planId);
 
     await _deleteAttendanceForPlan(removed.clientId, removed);
 
@@ -404,7 +418,7 @@ class AppState extends ChangeNotifier {
     final start = jc.JalaliDate.tryParse(plan.startDate!);
     if (start == null) return;
 
-    final startJdn = shamsi.Jalali(start.year, start.month, start.day).julianDayNumber;
+    final startJdn = start.toJdn();
     final template = templateById(plan.templateId);
     final duration = template?.days ?? plan.days;
     final endJdn = startJdn + duration - 1;
@@ -413,13 +427,13 @@ class AppState extends ChangeNotifier {
       if (a.clientId != clientId) return false;
       final date = jc.JalaliDate.tryParse(a.date);
       if (date == null) return false;
-      final jdn = shamsi.Jalali(date.year, date.month, date.day).julianDayNumber;
+      final jdn = date.toJdn();
       return jdn >= startJdn && jdn <= endJdn;
     }).toList();
 
     final toDeleteSet = toDelete.toSet();
     for (final r in toDelete) {
-      if (r.id != null) await _db.deleteAttendance(r.id!);
+      if (r.id != null) await _repository.deleteAttendance(r.id!);
     }
     attendance.removeWhere(toDeleteSet.contains);
   }
@@ -429,7 +443,7 @@ class AppState extends ChangeNotifier {
     if (idx == -1) return;
     final updated = plans[idx].copyWith(status: 'frozen');
     plans[idx] = updated;
-    await _db.updatePlan(updated);
+    await _repository.updatePlan(updated);
     notifyListeners();
   }
 
@@ -438,56 +452,88 @@ class AppState extends ChangeNotifier {
     if (idx == -1) return;
     final updated = plans[idx].copyWith(status: 'active');
     plans[idx] = updated;
-    await _db.updatePlan(updated);
+    await _repository.updatePlan(updated);
     notifyListeners();
   }
 
-  /// Deletes ALL attendance records for the client, then writes the new set.
-  /// Used by the Past Attendance calendar.
+  /// Updates attendance records for a client by diffing against the
+  /// provided [dateStatusMap]. Only adds/removes/updates the records
+  /// that actually changed, instead of deleting and reinserting
+  /// everything.
   Future<void> replaceAttendance(
     int clientId,
     Map<String, String> dateStatusMap,
   ) async {
-    // 1. Snapshot old statuses so we can compute the delta per date
-    final oldStatusMap = <String, String>{};
+    // 1. Snapshot old statuses keyed by date
+    final oldStatusMap = <String, AttendanceRecord>{};
     for (final a in attendance.where((a) => a.clientId == clientId)) {
-      oldStatusMap[a.date] = a.status;
+      oldStatusMap[a.date] = a;
     }
 
     // 2. Compute delta from per-date changes
-    // Both 'present' and 'absent' consume 1 session from the active plan,
-    // so only additions/removals of dated records affect plan remaining.
     int delta = 0;
     for (final entry in dateStatusMap.entries) {
-      final oldStatus = oldStatusMap[entry.key];
+      final old = oldStatusMap[entry.key];
       final newStatus = entry.value;
-      if (oldStatus == null) {
+      if (old == null) {
         if (newStatus == 'present' || newStatus == 'absent') delta += 1;
       } else if (newStatus.isEmpty) {
-        if (oldStatus == 'present' || oldStatus == 'absent') delta -= 1;
+        if (old.status == 'present' || old.status == 'absent') delta -= 1;
       }
     }
 
-    // 3. Delete existing records
-    final existing =
-        attendance.where((a) => a.clientId == clientId).toList();
-    for (final r in existing) {
-      if (r.id != null) await _db.deleteAttendance(r.id!);
-    }
-    attendance.removeWhere((a) => a.clientId == clientId);
+    // 3. Diff: delete removed, insert new, update changed
+    final toDelete = <AttendanceRecord>[];
+    final toInsert = <MapEntry<String, String>>[];
+    final toUpdate = <MapEntry<String, String>>[];
 
-    // 4. Insert new records
     for (final entry in dateStatusMap.entries) {
+      final old = oldStatusMap[entry.key];
+      final newStatus = entry.value;
+      if (old == null) {
+        // New record
+        if (newStatus.isNotEmpty) toInsert.add(entry);
+      } else if (newStatus.isEmpty) {
+        // Removed record
+        toDelete.add(old);
+      } else if (old.status != newStatus) {
+        // Changed record
+        toUpdate.add(entry);
+      }
+    }
+
+    // 4. Apply deletions
+    for (final r in toDelete) {
+      if (r.id != null) await _repository.deleteAttendance(r.id!);
+      attendance.remove(r);
+    }
+
+    // 5. Apply updates (delete old, insert new to keep behavior simple)
+    for (final entry in toUpdate) {
+      final old = oldStatusMap[entry.key]!;
+      if (old.id != null) await _repository.deleteAttendance(old.id!);
+      attendance.remove(old);
       final rec = AttendanceRecord(
         clientId: clientId,
         date: entry.key,
         status: entry.value,
       );
-      final id = await _db.insertAttendance(rec);
+      final id = await _repository.insertAttendance(rec);
       attendance.add(rec.copyWith(id: id));
     }
 
-    // 5. Adjust the active plan's remaining by the delta
+    // 6. Apply insertions
+    for (final entry in toInsert) {
+      final rec = AttendanceRecord(
+        clientId: clientId,
+        date: entry.key,
+        status: entry.value,
+      );
+      final id = await _repository.insertAttendance(rec);
+      attendance.add(rec.copyWith(id: id));
+    }
+
+    // 7. Adjust the active plan's remaining by the delta
     if (delta != 0) {
       final active = activePlanForClient(clientId);
       if (active != null) {
@@ -496,15 +542,15 @@ class AppState extends ChangeNotifier {
         final updated = active.copyWith(remaining: newRemaining);
         final idx = plans.indexWhere((p) => p.id == active.id);
         if (idx != -1) plans[idx] = updated;
-        await _db.updatePlan(updated);
+        await _repository.updatePlan(updated);
 
-        // 6. If this caused the plan to hit 0, promote queued plan
+        // 8. If this caused the plan to hit 0, promote queued plan
         await _checkProgression(clientId);
       } else {
         // No active plan: adjust bonus for present dates added/removed.
         int bonusDelta = 0;
         for (final entry in dateStatusMap.entries) {
-          final oldStatus = oldStatusMap[entry.key];
+          final oldStatus = oldStatusMap[entry.key]?.status;
           final newStatus = entry.value;
           if (oldStatus == null && newStatus == 'present') {
             bonusDelta -= 1;
@@ -538,7 +584,7 @@ class AppState extends ChangeNotifier {
         .where((a) => a.clientId == clientId && a.date == todayJalali)
         .toList();
     for (final r in existing) {
-      if (r.id != null) await _db.deleteAttendance(r.id!);
+      if (r.id != null) await _repository.deleteAttendance(r.id!);
     }
     attendance.removeWhere((a) => a.clientId == clientId && a.date == todayJalali);
 
@@ -547,7 +593,7 @@ class AppState extends ChangeNotifier {
       date: todayJalali,
       status: status,
     );
-    final id = await _db.insertAttendance(rec);
+    final id = await _repository.insertAttendance(rec);
     attendance.add(rec.copyWith(id: id));
 
     // Charge the plan
@@ -556,7 +602,7 @@ class AppState extends ChangeNotifier {
       final updated = active.copyWith(remaining: active.remaining - 1);
       final idx = plans.indexWhere((p) => p.id == active.id);
       if (idx != -1) plans[idx] = updated;
-      await _db.updatePlan(updated);
+      await _repository.updatePlan(updated);
     } else if (active == null || active.remaining <= 0) {
       if (status == 'present') {
         await adjustBonus(clientId, -1);
@@ -574,7 +620,7 @@ class AppState extends ChangeNotifier {
         .where((a) => a.clientId == clientId && a.date == todayJalali)
         .toList();
     for (final r in existing) {
-      if (r.id != null) await _db.deleteAttendance(r.id!);
+      if (r.id != null) await _repository.deleteAttendance(r.id!);
     }
     attendance.removeWhere((a) => a.clientId == clientId && a.date == todayJalali);
 
@@ -584,7 +630,7 @@ class AppState extends ChangeNotifier {
       final updated = active.copyWith(remaining: active.remaining + 1);
       final idx = plans.indexWhere((p) => p.id == active.id);
       if (idx != -1) plans[idx] = updated;
-      await _db.updatePlan(updated);
+      await _repository.updatePlan(updated);
     } else if (active == null) {
       await adjustBonus(clientId, 1);
     }
@@ -602,11 +648,15 @@ class AppState extends ChangeNotifier {
     if (active.isFrozen) return;
 
     if (active.remaining <= 0) {
+      // Only expire if there is a queued plan to promote
+      final queue = queuedPlansForClient(clientId);
+      if (queue.isEmpty) return;
+
       final idx = plans.indexWhere((p) => p.id == active.id);
       if (idx != -1) {
         final expired = plans[idx].copyWith(status: 'expired');
         plans[idx] = expired;
-        await _db.updatePlan(expired);
+        await _repository.updatePlan(expired);
       }
       await _promoteNextQueued(clientId);
     }
@@ -627,7 +677,7 @@ class AppState extends ChangeNotifier {
       clearQueueOrder: true,
     );
     plans[idx] = promoted;
-    await _db.updatePlan(promoted);
+    await _repository.updatePlan(promoted);
   }
 
   Future<void> _renumberQueue(int clientId) async {
@@ -640,7 +690,7 @@ class AppState extends ChangeNotifier {
       if (idx != -1) {
         final updated = p.copyWith(queueOrder: newOrder);
         plans[idx] = updated;
-        await _db.updatePlan(updated);
+        await _repository.updatePlan(updated);
       }
     }
   }
@@ -854,7 +904,7 @@ class AppState extends ChangeNotifier {
 
   // ─── Direct insert helpers (bypass queue logic) ───
   Future<void> _insertPlanDirect(ClientPlan plan) async {
-    final id = await _db.insertPlan(plan);
+    final id = await _repository.insertPlan(plan);
     plans.add(plan.copyWith(id: id));
   }
 
@@ -865,7 +915,7 @@ class AppState extends ChangeNotifier {
       date: date,
       status: status,
     );
-    final id = await _db.insertAttendance(rec);
+    final id = await _repository.insertAttendance(rec);
     attendance.add(rec.copyWith(id: id));
   }
 
@@ -875,7 +925,7 @@ class AppState extends ChangeNotifier {
 
   /// Deletes every record in every store and resets in-memory state.
   Future<void> deleteAllData() async {
-    final db = await _db.database;
+    final db = await _repository.database;
     for (final store in [
       'clients',
       'tags',
@@ -891,6 +941,9 @@ class AppState extends ChangeNotifier {
     plans = [];
     attendance = [];
     tags = [];
+    _clientMap.clear();
+    _templateMap.clear();
+    _tagMap.clear();
     notifyListeners();
   }
 

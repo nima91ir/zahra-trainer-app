@@ -7,16 +7,6 @@ import '../../theme/app_tokens.dart';
 import '../../utils/persian_numbers.dart';
 import '../../widgets/settings_sheet.dart';
 
-String _persianToEnglishDigits(String input) {
-  const persian = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
-  const english = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
-  String result = input;
-  for (int i = 0; i < persian.length; i++) {
-    result = result.replaceAll(persian[i], english[i]);
-  }
-  return result;
-}
-
 class AddEditTemplateScreen extends StatefulWidget {
   final PlanTemplate? existing;
   const AddEditTemplateScreen({super.key, this.existing});
@@ -59,8 +49,8 @@ class _AddEditTemplateScreenState extends State<AddEditTemplateScreen> {
     final nav = Navigator.of(context);
     final isEdit = widget.existing != null;
 
-    final sessions = int.parse(_persianToEnglishDigits(_sessionsController.text));
-    final days = int.parse(_persianToEnglishDigits(_daysController.text));
+    final sessions = int.parse(faToEn(_sessionsController.text));
+    final days = int.parse(faToEn(_daysController.text));
 
     final template = PlanTemplate(
       id: widget.existing?.id,
@@ -95,8 +85,8 @@ class _AddEditTemplateScreenState extends State<AddEditTemplateScreen> {
 
     // Parse inputs for preview
     final name = _nameController.text.trim();
-    final sessionsText = _persianToEnglishDigits(_sessionsController.text);
-    final daysText = _persianToEnglishDigits(_daysController.text);
+    final sessionsText = faToEn(_sessionsController.text);
+    final daysText = faToEn(_daysController.text);
     
     final sessions = int.tryParse(sessionsText) ?? 0;
     final days = int.tryParse(daysText) ?? 0;
@@ -155,7 +145,7 @@ class _AddEditTemplateScreenState extends State<AddEditTemplateScreen> {
                 hintText: '۱۲',
               ),
               validator: (v) {
-                final val = int.tryParse(_persianToEnglishDigits(v ?? ''));
+                final val = int.tryParse(faToEn(v ?? ''));
                 return (val == null || val <= 0) ? 'تعداد معتبر وارد کنید' : null;
               },
             ),
@@ -169,7 +159,7 @@ class _AddEditTemplateScreenState extends State<AddEditTemplateScreen> {
                 hintText: '۲۸',
               ),
               validator: (v) {
-                final val = int.tryParse(_persianToEnglishDigits(v ?? ''));
+                final val = int.tryParse(faToEn(v ?? ''));
                 return (val == null || val <= 0) ? 'مدت معتبر وارد کنید' : null;
               },
             ),

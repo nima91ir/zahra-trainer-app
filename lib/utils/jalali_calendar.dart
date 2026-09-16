@@ -32,13 +32,17 @@ class JalaliDate {
     return JalaliDate(y, m, d);
   }
 
-  /// Returns the date as \'۱۴۰۵/۰۶/۲۱\' (Persian digits, zero-padded).
+  /// Returns the date as '۱۴۰۵/۰۶/۲۱' (Persian digits, zero-padded).
   @override
   String toString() {
     final m = month.toString().padLeft(2, '0');
     final d = day.toString().padLeft(2, '0');
     return fa('$year/$m/$d');
   }
+
+  /// Julian Day Number for this date. Useful for exact calendar-day
+  /// differences without DST or time-of-day issues.
+  int toJdn() => shamsi.Jalali(year, month, day).julianDayNumber;
 
   JalaliDate copyWith({int? year, int? month, int? day}) {
     return JalaliDate(
@@ -84,12 +88,16 @@ class JalaliDate {
   /// Number of days in the given Jalali month.
   /// Months 1-6 = 31 days
   /// Months 7-11 = 30 days
-  /// Month 12 = 29 days (30 in leap years — we treat as 29 for simplicity)
+  /// Month 12 = 29 days (30 in leap years)
   static int monthDays(int year, int month) {
     if (month < 1 || month > 12) return 0;
     if (month <= 6) return 31;
     if (month <= 11) return 30;
-    return 29;
+    // Esfand: check if it's a leap year by seeing if Esfand 30 exists
+    final d29 = shamsi.Jalali(year, 12, 29);
+    final nextDay = d29.toDateTime().add(const Duration(days: 1));
+    final nextJalali = shamsi.Jalali.fromDateTime(nextDay);
+    return nextJalali.month == 12 ? 30 : 29;
   }
 
   /// Weekday index of the first day of the given Jalali month.

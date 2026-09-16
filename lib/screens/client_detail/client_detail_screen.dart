@@ -428,28 +428,6 @@ class _ActivePlanCard extends StatelessWidget {
               Expanded(
                 child: OutlinedButton.icon(
                   onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => PastAttendanceScreen(clientId: plan.clientId),
-                      ),
-                    );
-                  },
-                  icon: Icon(Icons.history, size: 18),
-                  label: Text('حضور گذشته'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppTokens.primary,
-                    minimumSize: const Size.fromHeight(40),
-                    side: BorderSide(color: AppTokens.primary, width: 1.5),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTokens.rMd)),
-                    textStyle: TextStyle(fontFamily: 'Vazir', fontSize: 12.5, fontWeight: FontWeight.w700),
-                  ),
-                ),
-              ),
-              SizedBox(width: 8),
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () {
                     if (plan.isFrozen) {
                       state.unfreezePlan(plan.id!);
                       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('برنامه باز شد')));
@@ -746,7 +724,20 @@ class _AttendanceHistorySection extends StatelessWidget {
         if (records.isEmpty)
           Padding(
             padding: EdgeInsets.all(20),
-            child: Center(child: Text('هنوز حضوری ثبت نشده', style: TextStyle(fontFamily: 'Vazir', fontSize: 12.5, color: AppTokens.onSurfaceVar))),
+            child: Center(
+              child: TextButton.icon(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => PastAttendanceScreen(clientId: clientId),
+                    ),
+                  );
+                },
+                icon: Icon(Icons.history, size: 18),
+                label: Text('افزودن حضور گذشته', style: TextStyle(fontFamily: 'Vazir')),
+              ),
+            ),
           )
         else
           ...records.take(8).map((r) => Container(
@@ -757,32 +748,51 @@ class _AttendanceHistorySection extends StatelessWidget {
                   borderRadius: BorderRadius.circular(AppTokens.rMd),
                   border: Border.all(color: AppTokens.outlineVariant),
                 ),
-                child: Row(
-                  children: [
-                    Icon(Icons.calendar_today, size: 16, color: AppTokens.onSurfaceVar),
-                    SizedBox(width: 10),
-                    Expanded(
-                      child: Text(r.date, style: TextStyle(fontFamily: 'Vazir', fontSize: 13, fontWeight: FontWeight.w700, color: AppTokens.onSurface)),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: r.status == 'present' ? AppTokens.successSoft : AppTokens.errorSoft,
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: Text(
-                        r.status == 'present' ? 'حاضر' : 'غایب',
-                        style: TextStyle(
-                          fontFamily: 'Vazir',
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: r.status == 'present' ? AppTokens.success : AppTokens.error,
-                        ),
-                      ),
-                    ),
-                  ],
+                 child: Row(
+                   children: [
+                     Icon(Icons.calendar_today, size: 16, color: AppTokens.onSurfaceVar),
+                     SizedBox(width: 10),
+                     Expanded(
+                       child: Text(r.date, style: TextStyle(fontFamily: 'Vazir', fontSize: 13, fontWeight: FontWeight.w700, color: AppTokens.onSurface)),
+                     ),
+                     Container(
+                       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+                       decoration: BoxDecoration(
+                         color: r.status == 'present' ? AppTokens.successSoft : AppTokens.errorSoft,
+                         borderRadius: BorderRadius.circular(999),
+                       ),
+                       child: Text(
+                         r.status == 'present' ? 'حاضر' : 'غایب',
+                         style: TextStyle(
+                           fontFamily: 'Vazir',
+                           fontSize: 11,
+                           fontWeight: FontWeight.w700,
+                           color: r.status == 'present' ? AppTokens.success : AppTokens.error,
+                         ),
+                       ),
+                     ),
+                     SizedBox(width: 8),
+                     IconButton(
+                       icon: Icon(Icons.delete_outline, size: 18, color: AppTokens.error),
+                       onPressed: () => state.undoAttendance(clientId, r.date),
+                       tooltip: 'حذف',
+                     ),
+                   ],
+                 ),
+               )),
+          SizedBox(height: 10),
+          TextButton.icon(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => PastAttendanceScreen(clientId: clientId),
                 ),
-              )),
+              );
+            },
+            icon: Icon(Icons.history, size: 18),
+            label: Text('افزودن حضور گذشته', style: TextStyle(fontFamily: 'Vazir')),
+          ),
       ],
     );
   }
@@ -819,7 +829,7 @@ class _PastPlansSection extends StatelessWidget {
               final start = jc.JalaliDate.tryParse(p.startDate ?? '');
               if (start == null) return;
 
-              final startJdn = shamsi.Jalali(start.year, start.month, start.day).julianDayNumber;
+              final startJdn = start.toJdn();
               final endJdn = startJdn + duration - 1;
               final endDateTime = shamsi.Jalali(start.year, start.month, start.day).toDateTime().add(Duration(days: duration - 1));
               final endJalali = shamsi.Jalali.fromDateTime(endDateTime);
@@ -830,7 +840,7 @@ class _PastPlansSection extends StatelessWidget {
                   .where((a) {
                     final date = jc.JalaliDate.tryParse(a.date);
                     if (date == null) return false;
-                    final jdn = shamsi.Jalali(date.year, date.month, date.day).julianDayNumber;
+                    final jdn = date.toJdn();
                     return jdn >= startJdn && jdn <= endJdn;
                   })
                   .toList();
@@ -856,9 +866,7 @@ class _PastPlansSection extends StatelessWidget {
                   final da = jc.JalaliDate.tryParse(a.date);
                   final db = jc.JalaliDate.tryParse(b.date);
                   if (da == null || db == null) return 0;
-                  final ja = shamsi.Jalali(da.year, da.month, da.day);
-                  final jb = shamsi.Jalali(db.year, db.month, db.day);
-                  return ja.julianDayNumber.compareTo(jb.julianDayNumber);
+                  return da.toJdn().compareTo(db.toJdn());
                 });
 
               showDialog(

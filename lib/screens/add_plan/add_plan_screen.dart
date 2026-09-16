@@ -7,6 +7,7 @@ import '../../utils/jalali_calendar.dart' as jc;
 import '../../utils/persian_numbers.dart';
 import '../../widgets/jalali_calendar.dart';
 import '../../widgets/settings_sheet.dart';
+import '../../widgets/mini_tag.dart';
 
 class AddPlanScreen extends StatefulWidget {
   final int clientId;
@@ -219,9 +220,9 @@ class _AddPlanScreenState extends State<AddPlanScreen> {
                             SizedBox(height: 5),
                             Row(
                               children: [
-                                _MiniTag(text: '${fa(t.sessions)} جلسه'),
+                                MiniTag(text: '${fa(t.sessions)} جلسه'),
                                 SizedBox(width: 6),
-                                _MiniTag(text: '${fa(t.days)} روز'),
+                                MiniTag(text: '${fa(t.days)} روز'),
                               ],
                             ),
                           ],
@@ -300,31 +301,6 @@ class _AddPlanScreenState extends State<AddPlanScreen> {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _MiniTag extends StatelessWidget {
-  final String text;
-  const _MiniTag({required this.text});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
-      decoration: BoxDecoration(
-        color: AppTokens.surfaceVariant,
-        borderRadius: BorderRadius.circular(AppTokens.rSm),
-      ),
-      child: Text(
-        text,
-        style: TextStyle(
-          fontFamily: 'Vazir',
-          fontSize: 11,
-          fontWeight: FontWeight.w700,
-          color: AppTokens.onSurfaceVar,
-        ),
       ),
     );
   }

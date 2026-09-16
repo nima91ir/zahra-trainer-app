@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:shamsi_date/shamsi_date.dart' as shamsi;
 
 import '../../data/models/client.dart';
 import '../../screens/client_detail/client_detail_screen.dart';
@@ -231,7 +230,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       final start = jc.JalaliDate.tryParse(activePlan.startDate!);
       if (start == null) continue;
 
-      final startJdn = shamsi.Jalali(start.year, start.month, start.day).julianDayNumber;
+      final startJdn = start.toJdn();
       final template = state.templateById(activePlan.templateId);
       final duration = template?.days ?? activePlan.days;
       final endJdn = startJdn + duration - 1;
@@ -240,7 +239,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         if (rec.clientId != client.id) continue;
         final recDate = jc.JalaliDate.tryParse(rec.date);
         if (recDate == null) continue;
-        final recJdn = shamsi.Jalali(recDate.year, recDate.month, recDate.day).julianDayNumber;
+        final recJdn = recDate.toJdn();
         if (recJdn < startJdn || recJdn > endJdn) continue;
 
         if (rec.status == 'present') {

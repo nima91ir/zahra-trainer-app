@@ -8,6 +8,7 @@ import '../../utils/persian_numbers.dart';
 import '../add_edit_template/add_edit_template_screen.dart';
 
 import '../../widgets/settings_sheet.dart';
+import '../../widgets/mini_tag.dart';
 
 class TemplatesScreen extends StatelessWidget {
   const TemplatesScreen({super.key});
@@ -48,7 +49,9 @@ class TemplatesScreen extends StatelessWidget {
                 ...state.templates.map((t) => _TemplateCard(
                       template: t,
                       usageCount: state.plans
-                          .where((p) => p.templateId == t.id)
+                          .where((p) => p.templateId == t.id && p.status == 'active')
+                          .map((p) => p.clientId)
+                          .toSet()
                           .length,
                     )),
               ],
@@ -122,9 +125,9 @@ class _TemplateCard extends StatelessWidget {
                 SizedBox(height: 5),
                 Row(
                   children: [
-                    _MiniTag(text: '${fa(template.sessions)} جلسه'),
+                    MiniTag(text: '${fa(template.sessions)} جلسه'),
                     SizedBox(width: 6),
-                    _MiniTag(text: '${fa(template.days)} روز'),
+                    MiniTag(text: '${fa(template.days)} روز'),
                   ],
                 ),
                 if (usageCount > 0) ...[
@@ -210,31 +213,6 @@ class _TemplateCard extends StatelessWidget {
                     fontWeight: FontWeight.w700)),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _MiniTag extends StatelessWidget {
-  final String text;
-  const _MiniTag({required this.text});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
-      decoration: BoxDecoration(
-        color: AppTokens.surfaceVariant,
-        borderRadius: BorderRadius.circular(AppTokens.rSm),
-      ),
-      child: Text(
-        text,
-        style: TextStyle(
-          fontFamily: 'Vazir',
-          fontSize: 11,
-          fontWeight: FontWeight.w700,
-          color: AppTokens.onSurfaceVar,
-        ),
       ),
     );
   }
