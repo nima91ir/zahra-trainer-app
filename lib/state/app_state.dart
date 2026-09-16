@@ -638,6 +638,69 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Updates attendance status for an arbitrary date.
+  ///
+  /// If [newStatus] is empty, the record is removed.
+  /// Otherwise the existing record is replaced with the new status.
+  Future<void> updateAttendanceStatus(
+    int clientId,
+    String date,
+    String newStatus,
+  ) async {
+    final existing = attendance
+        .where((a) => a.clientId == clientId && a.date == date)
+        .toList();
+
+    final oldStatus = existing.isEmpty ? null : existing.first.status;
+
+    // Remove old records
+    for (final r in existing) {
+      if (r.id != null) await _repository.deleteAttendance(r.id!);
+    }
+    attendance.removeWhere((a) => a.clientId == clientId && a.date == date);
+
+    if (newStatus.isEmpty) {
+      // Deleting: refund if there was an old status
+      if (oldStatus != null) {
+        final active = activePlanForClient(clientId);
+        if (active != null && active.remaining < active.sessions) {
+          final updated = active.copyWith(remaining: active.remaining + 1);
+          final idx = plans.indexWhere((p) => p.id == active.id);
+          if (idx != -1) plans[idx] = updated;
+          await _repository.updatePlan(updated);
+        } else if (active == null) {
+          await adjustBonus(clientId, 1);
+        }
+      }
+    } else {
+      // Insert new record
+      final rec = AttendanceRecord(
+        clientId: clientId,
+        date: date,
+        status: newStatus,
+      );
+      final id = await _repository.insertAttendance(rec);
+      attendance.add(rec.copyWith(id: id));
+
+      // Charge plan if this is a new record or status changed
+      if (oldStatus == null || oldStatus != newStatus) {
+        final active = activePlanForClient(clientId);
+        if (active != null && active.remaining > 0) {
+          final updated = active.copyWith(remaining: active.remaining - 1);
+          final idx = plans.indexWhere((p) => p.id == active.id);
+          if (idx != -1) plans[idx] = updated;
+          await _repository.updatePlan(updated);
+        } else if (active == null || active.remaining <= 0) {
+          if (newStatus == 'present') {
+            await adjustBonus(clientId, -1);
+          }
+        }
+      }
+    }
+
+    notifyListeners();
+  }
+
   // ═══════════════ Internal helpers ═══════════════
 
   /// If a client's active plan has 0 sessions left, mark it expired and

@@ -740,46 +740,53 @@ class _AttendanceHistorySection extends StatelessWidget {
             ),
           )
         else
-          ...records.take(8).map((r) => Container(
-                margin: const EdgeInsets.only(bottom: 8),
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                decoration: BoxDecoration(
-                  color: AppTokens.surface,
-                  borderRadius: BorderRadius.circular(AppTokens.rMd),
-                  border: Border.all(color: AppTokens.outlineVariant),
+          ...records.take(8).map((r) => InkWell(
+                onTap: () {
+                  final state = context.read<AppState>();
+                  final next = r.status == 'present' ? 'absent' : '';
+                  state.updateAttendanceStatus(clientId, r.date, next);
+                },
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: AppTokens.surface,
+                    borderRadius: BorderRadius.circular(AppTokens.rMd),
+                    border: Border.all(color: AppTokens.outlineVariant),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.calendar_today, size: 16, color: AppTokens.onSurfaceVar),
+                      SizedBox(width: 10),
+                      Expanded(
+                        child: Text(r.date, style: TextStyle(fontFamily: 'Vazir', fontSize: 13, fontWeight: FontWeight.w700, color: AppTokens.onSurface)),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: r.status == 'present' ? AppTokens.successSoft : AppTokens.errorSoft,
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Text(
+                          r.status == 'present' ? 'حاضر' : 'غایب',
+                          style: TextStyle(
+                            fontFamily: 'Vazir',
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: r.status == 'present' ? AppTokens.success : AppTokens.error,
+                          ),
+                        ),
+                      ),
+                      SizedBox(width: 8),
+                      IconButton(
+                        icon: Icon(Icons.delete_outline, size: 18, color: AppTokens.error),
+                        onPressed: () => context.read<AppState>().undoAttendance(clientId, r.date),
+                        tooltip: 'حذف',
+                      ),
+                    ],
+                  ),
                 ),
-                 child: Row(
-                   children: [
-                     Icon(Icons.calendar_today, size: 16, color: AppTokens.onSurfaceVar),
-                     SizedBox(width: 10),
-                     Expanded(
-                       child: Text(r.date, style: TextStyle(fontFamily: 'Vazir', fontSize: 13, fontWeight: FontWeight.w700, color: AppTokens.onSurface)),
-                     ),
-                     Container(
-                       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
-                       decoration: BoxDecoration(
-                         color: r.status == 'present' ? AppTokens.successSoft : AppTokens.errorSoft,
-                         borderRadius: BorderRadius.circular(999),
-                       ),
-                       child: Text(
-                         r.status == 'present' ? 'حاضر' : 'غایب',
-                         style: TextStyle(
-                           fontFamily: 'Vazir',
-                           fontSize: 11,
-                           fontWeight: FontWeight.w700,
-                           color: r.status == 'present' ? AppTokens.success : AppTokens.error,
-                         ),
-                       ),
-                     ),
-                     SizedBox(width: 8),
-                     IconButton(
-                       icon: Icon(Icons.delete_outline, size: 18, color: AppTokens.error),
-                       onPressed: () => state.undoAttendance(clientId, r.date),
-                       tooltip: 'حذف',
-                     ),
-                   ],
-                 ),
-               )),
+              )),
           SizedBox(height: 10),
           TextButton.icon(
             onPressed: () {
