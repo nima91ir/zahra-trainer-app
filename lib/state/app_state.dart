@@ -105,9 +105,12 @@ class AppState extends ChangeNotifier {
         if (newScore > existingScore ||
             (newScore == existingScore &&
                 (r.id ?? 0) > (existing.id ?? 0))) {
-          bestByKey[key] = r;
+          final merged = r.copyWith(sessions: r.sessions + existing.sessions);
+          bestByKey[key] = merged;
           toDelete.add(existing);
         } else {
+          final merged = existing.copyWith(sessions: existing.sessions + r.sessions);
+          bestByKey[key] = merged;
           toDelete.add(r);
         }
       }
@@ -349,7 +352,6 @@ class AppState extends ChangeNotifier {
       final today = jc.JalaliDate.today();
 
       int elapsedDays = 0;
-      int pastAttendanceCount = 0;
       if (parsed != null) {
         final start = parsed;
         final isPast = start.year < today.year ||
@@ -362,22 +364,10 @@ class AppState extends ChangeNotifier {
           final startJdn = start.toJdn();
           final todayJdn = today.toJdn();
           elapsedDays = (todayJdn - startJdn).clamp(0, template.days);
-
-          final normalizedStart = start.toString();
-          final normalizedToday = today.toString();
-          pastAttendanceCount = attendance
-              .where((a) =>
-                  a.clientId == clientId &&
-                  a.date.compareTo(normalizedStart) >= 0 &&
-                  a.date.compareTo(normalizedToday) <= 0 &&
-                  (a.status == 'present' || a.status == 'absent'))
-              .length;
         }
       }
 
       final remainingDays = (template.days - elapsedDays).clamp(0, template.days);
-      final remainingSessions =
-          (template.sessions - pastAttendanceCount).clamp(0, template.sessions);
 
       final plan = ClientPlan(
         clientId: clientId,
@@ -385,7 +375,7 @@ class AppState extends ChangeNotifier {
         startDate: startDate,
         sessions: template.sessions,
         days: remainingDays,
-        remaining: remainingSessions,
+        remaining: template.sessions,
         status: 'active',
       );
       final id = await _repository.insertPlan(plan);
@@ -402,7 +392,8 @@ class AppState extends ChangeNotifier {
     plans.removeAt(idx);
     await _repository.deletePlan(planId);
 
-    await _deleteAttendanceForPlan(removed.clientId, removed);
+    // NOTE: We intentionally do NOT delete attendance records when a plan is deleted.
+    // Attendance history is preserved for reporting and historical accuracy.
 
     // If it was active/frozen, promote the first queued plan (if any)
     if (removed.status == 'active' || removed.status == 'frozen') {
@@ -411,31 +402,6 @@ class AppState extends ChangeNotifier {
 
     await _renumberQueue(removed.clientId);
     notifyListeners();
-  }
-
-  Future<void> _deleteAttendanceForPlan(int clientId, ClientPlan plan) async {
-    if (plan.startDate == null) return;
-    final start = jc.JalaliDate.tryParse(plan.startDate!);
-    if (start == null) return;
-
-    final startJdn = start.toJdn();
-    final template = templateById(plan.templateId);
-    final duration = template?.days ?? plan.days;
-    final endJdn = startJdn + duration - 1;
-
-    final toDelete = attendance.where((a) {
-      if (a.clientId != clientId) return false;
-      final date = jc.JalaliDate.tryParse(a.date);
-      if (date == null) return false;
-      final jdn = date.toJdn();
-      return jdn >= startJdn && jdn <= endJdn;
-    }).toList();
-
-    final toDeleteSet = toDelete.toSet();
-    for (final r in toDelete) {
-      if (r.id != null) await _repository.deleteAttendance(r.id!);
-    }
-    attendance.removeWhere(toDeleteSet.contains);
   }
 
   Future<void> freezePlan(int planId) async {
@@ -457,46 +423,51 @@ class AppState extends ChangeNotifier {
   }
 
   /// Updates attendance records for a client by diffing against the
-  /// provided [dateStatusMap]. Only adds/removes/updates the records
+  /// provided [dateSessionsMap]. Only adds/removes/updates the records
   /// that actually changed, instead of deleting and reinserting
   /// everything.
+  ///
+  /// The map key is the Jalali date string, and the value is the number
+  /// of sessions for that date. A value of 0 means the date is removed.
   Future<void> replaceAttendance(
     int clientId,
-    Map<String, String> dateStatusMap,
+    Map<String, int> dateSessionsMap,
   ) async {
-    // 1. Snapshot old statuses keyed by date
-    final oldStatusMap = <String, AttendanceRecord>{};
+    // 1. Snapshot old records keyed by date
+    final oldMap = <String, AttendanceRecord>{};
     for (final a in attendance.where((a) => a.clientId == clientId)) {
-      oldStatusMap[a.date] = a;
+      oldMap[a.date] = a;
     }
 
-    // 2. Compute delta from per-date changes
+    // 2. Compute delta in total sessions
     int delta = 0;
-    for (final entry in dateStatusMap.entries) {
-      final old = oldStatusMap[entry.key];
-      final newStatus = entry.value;
+    for (final entry in dateSessionsMap.entries) {
+      final old = oldMap[entry.key];
+      final newSessions = entry.value;
       if (old == null) {
-        if (newStatus == 'present' || newStatus == 'absent') delta += 1;
-      } else if (newStatus.isEmpty) {
-        if (old.status == 'present' || old.status == 'absent') delta -= 1;
+        delta += newSessions;
+      } else if (newSessions == 0) {
+        delta -= old.sessions;
+      } else {
+        delta += newSessions - old.sessions;
       }
     }
 
     // 3. Diff: delete removed, insert new, update changed
     final toDelete = <AttendanceRecord>[];
-    final toInsert = <MapEntry<String, String>>[];
-    final toUpdate = <MapEntry<String, String>>[];
+    final toInsert = <MapEntry<String, int>>[];
+    final toUpdate = <MapEntry<String, int>>[];
 
-    for (final entry in dateStatusMap.entries) {
-      final old = oldStatusMap[entry.key];
-      final newStatus = entry.value;
+    for (final entry in dateSessionsMap.entries) {
+      final old = oldMap[entry.key];
+      final newSessions = entry.value;
       if (old == null) {
         // New record
-        if (newStatus.isNotEmpty) toInsert.add(entry);
-      } else if (newStatus.isEmpty) {
+        if (newSessions > 0) toInsert.add(entry);
+      } else if (newSessions == 0) {
         // Removed record
         toDelete.add(old);
-      } else if (old.status != newStatus) {
+      } else if (old.sessions != newSessions || old.status != 'present') {
         // Changed record
         toUpdate.add(entry);
       }
@@ -510,13 +481,14 @@ class AppState extends ChangeNotifier {
 
     // 5. Apply updates (delete old, insert new to keep behavior simple)
     for (final entry in toUpdate) {
-      final old = oldStatusMap[entry.key]!;
+      final old = oldMap[entry.key]!;
       if (old.id != null) await _repository.deleteAttendance(old.id!);
       attendance.remove(old);
       final rec = AttendanceRecord(
         clientId: clientId,
         date: entry.key,
-        status: entry.value,
+        status: 'present',
+        sessions: entry.value,
       );
       final id = await _repository.insertAttendance(rec);
       attendance.add(rec.copyWith(id: id));
@@ -527,7 +499,8 @@ class AppState extends ChangeNotifier {
       final rec = AttendanceRecord(
         clientId: clientId,
         date: entry.key,
-        status: entry.value,
+        status: 'present',
+        sessions: entry.value,
       );
       final id = await _repository.insertAttendance(rec);
       attendance.add(rec.copyWith(id: id));
@@ -549,14 +522,15 @@ class AppState extends ChangeNotifier {
       } else {
         // No active plan: adjust bonus for present dates added/removed.
         int bonusDelta = 0;
-        for (final entry in dateStatusMap.entries) {
-          final oldStatus = oldStatusMap[entry.key]?.status;
-          final newStatus = entry.value;
-          if (oldStatus == null && newStatus == 'present') {
-            bonusDelta -= 1;
-          } else if (oldStatus == 'present' &&
-              (newStatus.isEmpty || newStatus == 'absent')) {
-            bonusDelta += 1;
+        for (final entry in dateSessionsMap.entries) {
+          final old = oldMap[entry.key];
+          final newSessions = entry.value;
+          if (old == null && newSessions > 0) {
+            bonusDelta -= newSessions;
+          } else if (old != null && newSessions == 0) {
+            bonusDelta += old.sessions;
+          } else if (old != null && newSessions > 0) {
+            bonusDelta += old.sessions - newSessions;
           }
         }
         if (bonusDelta != 0) {
@@ -570,7 +544,7 @@ class AppState extends ChangeNotifier {
 
   // ═══════════════ Attendance mutations ═══════════════
 
-  /// Marks today's attendance for a client.
+  /// Marks attendance for a client on a specific date.
   ///
   /// Both 'present' and 'absent' charge the plan (remaining--).
   /// If remaining is already 0 and status is 'present', uses a bonus session.
@@ -578,8 +552,9 @@ class AppState extends ChangeNotifier {
   Future<void> markAttendance(
     int clientId,
     String status,
-    String todayJalali,
-  ) async {
+    String todayJalali, {
+    int sessions = 1,
+  }) async {
     final existing = attendance
         .where((a) => a.clientId == clientId && a.date == todayJalali)
         .toList();
@@ -592,6 +567,7 @@ class AppState extends ChangeNotifier {
       clientId: clientId,
       date: todayJalali,
       status: status,
+      sessions: sessions,
     );
     final id = await _repository.insertAttendance(rec);
     attendance.add(rec.copyWith(id: id));
@@ -599,13 +575,13 @@ class AppState extends ChangeNotifier {
     // Charge the plan
     final active = activePlanForClient(clientId);
     if (active != null && active.remaining > 0) {
-      final updated = active.copyWith(remaining: active.remaining - 1);
+      final updated = active.copyWith(remaining: active.remaining - sessions);
       final idx = plans.indexWhere((p) => p.id == active.id);
       if (idx != -1) plans[idx] = updated;
       await _repository.updatePlan(updated);
     } else if (active == null || active.remaining <= 0) {
       if (status == 'present') {
-        await adjustBonus(clientId, -1);
+        await adjustBonus(clientId, -sessions);
       }
     }
 
@@ -613,88 +589,97 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Removes today's attendance record for the client and refunds 1
-  /// session back to the active plan (or bonus).
+  /// Removes one session from the attendance record for the client on the
+  /// given date and refunds 1 session back to the active plan (or bonus).
+  /// If the record has only 1 session, it is deleted entirely.
   Future<void> undoAttendance(int clientId, String todayJalali) async {
     final existing = attendance
         .where((a) => a.clientId == clientId && a.date == todayJalali)
         .toList();
-    for (final r in existing) {
-      if (r.id != null) await _repository.deleteAttendance(r.id!);
-    }
-    attendance.removeWhere((a) => a.clientId == clientId && a.date == todayJalali);
+    if (existing.isEmpty) return;
 
-    // Refund
+    final record = existing.first;
+    final currentSessions = record.sessions;
+
+    if (currentSessions <= 1) {
+      // Delete the record entirely
+      if (record.id != null) await _repository.deleteAttendance(record.id!);
+      attendance.remove(record);
+    } else {
+      // Decrement sessions
+      final updated = record.copyWith(sessions: currentSessions - 1);
+      if (record.id != null) {
+        await _repository.deleteAttendance(record.id!);
+        final newId = await _repository.insertAttendance(updated);
+        attendance[attendance.indexOf(record)] = updated.copyWith(id: newId);
+      } else {
+        attendance[attendance.indexOf(record)] = updated;
+      }
+    }
+
+    // Refund 1 session
     final active = activePlanForClient(clientId);
-    if (active != null && active.remaining < active.sessions) {
-      final updated = active.copyWith(remaining: active.remaining + 1);
+    if (active != null) {
+      final updatedPlan = active.copyWith(remaining: (active.remaining + 1).clamp(0, active.sessions));
       final idx = plans.indexWhere((p) => p.id == active.id);
-      if (idx != -1) plans[idx] = updated;
-      await _repository.updatePlan(updated);
-    } else if (active == null) {
+      if (idx != -1) plans[idx] = updatedPlan;
+      await _repository.updatePlan(updatedPlan);
+    } else {
       await adjustBonus(clientId, 1);
     }
 
     notifyListeners();
   }
 
-  /// Updates attendance status for an arbitrary date.
-  ///
-  /// If [newStatus] is empty, the record is removed.
-  /// Otherwise the existing record is replaced with the new status.
-  Future<void> updateAttendanceStatus(
-    int clientId,
-    String date,
-    String newStatus,
-  ) async {
+  /// Adds one more session to an existing attendance record for the given
+  /// date. If no record exists, creates one with 1 session.
+  Future<void> addAttendanceSession(int clientId, String date) async {
     final existing = attendance
         .where((a) => a.clientId == clientId && a.date == date)
         .toList();
 
-    final oldStatus = existing.isEmpty ? null : existing.first.status;
-
-    // Remove old records
-    for (final r in existing) {
-      if (r.id != null) await _repository.deleteAttendance(r.id!);
-    }
-    attendance.removeWhere((a) => a.clientId == clientId && a.date == date);
-
-    if (newStatus.isEmpty) {
-      // Deleting: refund if there was an old status
-      if (oldStatus != null) {
-        final active = activePlanForClient(clientId);
-        if (active != null && active.remaining < active.sessions) {
-          final updated = active.copyWith(remaining: active.remaining + 1);
-          final idx = plans.indexWhere((p) => p.id == active.id);
-          if (idx != -1) plans[idx] = updated;
-          await _repository.updatePlan(updated);
-        } else if (active == null) {
-          await adjustBonus(clientId, 1);
-        }
-      }
-    } else {
-      // Insert new record
+    if (existing.isEmpty) {
+      // Create new record with 1 session
       final rec = AttendanceRecord(
         clientId: clientId,
         date: date,
-        status: newStatus,
+        status: 'present',
+        sessions: 1,
       );
       final id = await _repository.insertAttendance(rec);
       attendance.add(rec.copyWith(id: id));
 
-      // Charge plan if this is a new record or status changed
-      if (oldStatus == null || oldStatus != newStatus) {
-        final active = activePlanForClient(clientId);
-        if (active != null && active.remaining > 0) {
-          final updated = active.copyWith(remaining: active.remaining - 1);
-          final idx = plans.indexWhere((p) => p.id == active.id);
-          if (idx != -1) plans[idx] = updated;
-          await _repository.updatePlan(updated);
-        } else if (active == null || active.remaining <= 0) {
-          if (newStatus == 'present') {
-            await adjustBonus(clientId, -1);
-          }
-        }
+      // Charge plan
+      final active = activePlanForClient(clientId);
+      if (active != null && active.remaining > 0) {
+        final updated = active.copyWith(remaining: active.remaining - 1);
+        final idx = plans.indexWhere((p) => p.id == active.id);
+        if (idx != -1) plans[idx] = updated;
+        await _repository.updatePlan(updated);
+      } else if (active == null || active.remaining <= 0) {
+        await adjustBonus(clientId, -1);
+      }
+    } else {
+      // Increment sessions
+      final record = existing.first;
+      final updated = record.copyWith(sessions: record.sessions + 1);
+      if (record.id != null) {
+        await _repository.deleteAttendance(record.id!);
+        final newId = await _repository.insertAttendance(updated);
+        attendance[attendance.indexOf(record)] = updated.copyWith(id: newId);
+      } else {
+        attendance[attendance.indexOf(record)] = updated;
+      }
+
+      // Charge plan
+      final active = activePlanForClient(clientId);
+      if (active != null && active.remaining > 0) {
+        final updatedPlan = active.copyWith(remaining: active.remaining - 1);
+        final idx = plans.indexWhere((p) => p.id == active.id);
+        if (idx != -1) plans[idx] = updatedPlan;
+        await _repository.updatePlan(updatedPlan);
+      } else if (active == null || active.remaining <= 0) {
+        await adjustBonus(clientId, -1);
       }
     }
 
@@ -711,7 +696,6 @@ class AppState extends ChangeNotifier {
     if (active.isFrozen) return;
 
     if (active.remaining <= 0) {
-      // Only expire if there is a queued plan to promote
       final queue = queuedPlansForClient(clientId);
       if (queue.isEmpty) return;
 

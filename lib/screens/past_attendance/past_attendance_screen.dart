@@ -53,11 +53,21 @@ class _PastAttendanceScreenState extends State<PastAttendanceScreen> {
     }
   }
 
-  Map<String, int> _buildCounts(String status) {
+  Map<String, int> _buildCounts() {
     final map = <String, int>{};
     for (final entry in _draftAttendance.entries) {
-      if (entry.value == status) {
-        map[entry.key] = (map[entry.key] ?? 0) + 1;
+      if (entry.value == 'present') {
+        map[entry.key] = 1;
+      }
+    }
+    return map;
+  }
+
+  Map<String, int> _buildAbsentCounts() {
+    final map = <String, int>{};
+    for (final entry in _draftAttendance.entries) {
+      if (entry.value == 'absent') {
+        map[entry.key] = 1;
       }
     }
     return map;
@@ -82,20 +92,24 @@ class _PastAttendanceScreenState extends State<PastAttendanceScreen> {
 
     setState(() {
       _selectedDate = date;
-      final current = _draftAttendance[date];
-      if (current == null) {
-        _draftAttendance[date] = 'present';
-      } else if (current == 'present') {
+      final current = _draftAttendance[date] ?? '';
+      if (current == 'present') {
         _draftAttendance[date] = 'absent';
-      } else {
+      } else if (current == 'absent') {
         _draftAttendance.remove(date);
+      } else {
+        _draftAttendance[date] = 'present';
       }
     });
   }
 
   Future<void> _save() async {
     final state = context.read<AppState>();
-    await state.replaceAttendance(widget.clientId, _draftAttendance);
+    final dateSessions = <String, int>{};
+    for (final entry in _draftAttendance.entries) {
+      dateSessions[entry.key] = entry.value == 'present' ? 1 : 0;
+    }
+    await state.replaceAttendance(widget.clientId, dateSessions);
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('تاریخچه حضور ذخیره شد', style: TextStyle(fontFamily: 'Vazir'))),
@@ -133,8 +147,8 @@ class _PastAttendanceScreenState extends State<PastAttendanceScreen> {
     final activePlan = state.activePlanForClient(widget.clientId);
     final template = activePlan != null ? state.templateById(activePlan.templateId) : null;
 
-    final presentCounts = _buildCounts('present');
-    final absentCounts = _buildCounts('absent');
+    final presentCounts = _buildCounts();
+    final absentCounts = _buildAbsentCounts();
 
     return Scaffold(
       appBar: AppBar(
@@ -231,12 +245,16 @@ class _PastAttendanceScreenState extends State<PastAttendanceScreen> {
               padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
               alignment: Alignment.center,
               child: Text(
-                '$_selectedDate — ${_draftAttendance[_selectedDate] == 'present' ? 'حاضر' : (_draftAttendance[_selectedDate] == 'absent' ? 'غایب' : 'پاک شد')}',
+                '$_selectedDate — ${_draftAttendance[_selectedDate] == null ? 'خالی' : _draftAttendance[_selectedDate] == 'present' ? 'حاضر' : 'غایب'}',
                 style: TextStyle(
                   fontFamily: 'Vazir',
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
-                  color: _draftAttendance[_selectedDate] == 'present' ? AppTokens.success : (_draftAttendance[_selectedDate] == 'absent' ? AppTokens.error : AppTokens.onSurfaceVar),
+                  color: _draftAttendance[_selectedDate] == null
+                      ? AppTokens.onSurfaceVar
+                      : _draftAttendance[_selectedDate] == 'present'
+                          ? AppTokens.success
+                          : AppTokens.error,
                 ),
               ),
             ),

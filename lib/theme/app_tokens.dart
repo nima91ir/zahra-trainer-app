@@ -7,9 +7,10 @@ class AppTokens {
   AppTokens._();
 
   // ─── Colors ───
-  static const Color primary        = const Color(0xFF88A36B);
-  static const Color primaryDark    = const Color(0xFF6B8452);
-  static const Color accent         = const Color(0xFFD4AF37);
+  static const Color primary        = Color(0xFF88A36B);
+  static const Color primaryDark    = Color(0xFF6B8452);
+  static const Color primarySoft    = Color(0xFFE8F0E4);
+  static const Color accent         = Color(0xFFD4AF37);
   static const Color surface        = const Color(0xFFFAFBF4);
   static const Color surfaceVariant = const Color(0xFFF2F4EE);
   static const Color background     = const Color(0xFFEFF2EA);
