@@ -366,6 +366,8 @@ class AppState extends ChangeNotifier {
     plans.removeAt(idx);
     await _db.deletePlan(planId);
 
+    await _deleteAttendanceForPlan(removed.clientId, removed);
+
     // If it was active/frozen, promote the first queued plan (if any)
     if (removed.status == 'active' || removed.status == 'frozen') {
       await _promoteNextQueued(removed.clientId);
@@ -373,6 +375,31 @@ class AppState extends ChangeNotifier {
 
     await _renumberQueue(removed.clientId);
     notifyListeners();
+  }
+
+  Future<void> _deleteAttendanceForPlan(int clientId, ClientPlan plan) async {
+    if (plan.startDate == null) return;
+    final start = jc.JalaliDate.tryParse(plan.startDate!);
+    if (start == null) return;
+
+    final startJdn = shamsi.Jalali(start.year, start.month, start.day).julianDayNumber;
+    final template = templateById(plan.templateId);
+    final duration = template?.days ?? plan.days;
+    final endJdn = startJdn + duration - 1;
+
+    final toDelete = attendance.where((a) {
+      if (a.clientId != clientId) return false;
+      final date = jc.JalaliDate.tryParse(a.date);
+      if (date == null) return false;
+      final jdn = shamsi.Jalali(date.year, date.month, date.day).julianDayNumber;
+      return jdn >= startJdn && jdn <= endJdn;
+    }).toList();
+
+    final toDeleteSet = toDelete.toSet();
+    for (final r in toDelete) {
+      if (r.id != null) await _db.deleteAttendance(r.id!);
+    }
+    attendance.removeWhere(toDeleteSet.contains);
   }
 
   Future<void> freezePlan(int planId) async {

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shamsi_date/shamsi_date.dart' as shamsi;
 
 import '../../data/models/client.dart';
 import '../../data/models/client_plan.dart';
@@ -808,40 +809,107 @@ class _PastPlansSection extends StatelessWidget {
         SizedBox(height: 10),
         ...pastPlans.map((p) {
           final template = state.templateById(p.templateId);
-          return Container(
-            margin: const EdgeInsets.only(bottom: 8),
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: AppTokens.surface,
-              borderRadius: BorderRadius.circular(AppTokens.rMd),
-              border: Border.all(color: AppTokens.outlineVariant),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(color: AppTokens.background, borderRadius: BorderRadius.circular(12)),
-                  alignment: Alignment.center,
-                  child: Icon(Icons.fitness_center, size: 16, color: AppTokens.onSurfaceVar),
+          return GestureDetector(
+            onTap: () {
+              final state = context.read<AppState>();
+              final template = state.templateById(p.templateId);
+              final duration = template?.days ?? p.days;
+
+              final start = jc.JalaliDate.tryParse(p.startDate ?? '');
+              if (start == null) return;
+
+              final startJdn = shamsi.Jalali(start.year, start.month, start.day).julianDayNumber;
+              final endJdn = startJdn + duration - 1;
+
+              final records = state.attendance
+                  .where((a) => a.clientId == clientId)
+                  .where((a) {
+                    final date = jc.JalaliDate.tryParse(a.date);
+                    if (date == null) return false;
+                    final jdn = shamsi.Jalali(date.year, date.month, date.day).julianDayNumber;
+                    return jdn >= startJdn && jdn <= endJdn;
+                  })
+                  .toList()
+                ..sort((a, b) {
+                    final da = jc.JalaliDate.tryParse(a.date);
+                    final db = jc.JalaliDate.tryParse(b.date);
+                    if (da == null || db == null) return 0;
+                    final ja = shamsi.Jalali(da.year, da.month, da.day);
+                    final jb = shamsi.Jalali(db.year, db.month, db.day);
+                    return ja.julianDayNumber.compareTo(jb.julianDayNumber);
+                  });
+
+              showDialog(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  title: Text(template?.name ?? 'برنامه', style: TextStyle(fontFamily: 'Vazir')),
+                  content: records.isEmpty
+                      ? Text('هیچ رکورد حضوری یافت نشد', style: TextStyle(fontFamily: 'Vazir'))
+                      : SizedBox(
+                          width: double.maxFinite,
+                          child: ListView.builder(
+                            shrinkWrap: true,
+                            itemCount: records.length,
+                            itemBuilder: (ctx, i) {
+                              final r = records[i];
+                              return ListTile(
+                                dense: true,
+                                title: Text(r.date, style: TextStyle(fontFamily: 'Vazir')),
+                                trailing: Text(
+                                  r.status == 'present' ? 'حاضر' : 'غایب',
+                                  style: TextStyle(
+                                    fontFamily: 'Vazir',
+                                    color: r.status == 'present' ? AppTokens.success : AppTokens.error,
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      child: Text('بستن', style: TextStyle(fontFamily: 'Vazir')),
+                    ),
+                  ],
                 ),
-                SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(template?.name ?? 'برنامه', style: TextStyle(fontFamily: 'Vazir', fontSize: 13, fontWeight: FontWeight.w800, color: AppTokens.onSurface)),
-                      SizedBox(height: 2),
-                      Text('شروع: ${p.startDate ?? '—'} · ${fa(p.days)} روز', style: TextStyle(fontFamily: 'Vazir', fontSize: 11, color: AppTokens.onSurfaceVar)),
-                    ],
+              );
+            },
+            child: Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: AppTokens.surface,
+                borderRadius: BorderRadius.circular(AppTokens.rMd),
+                border: Border.all(color: AppTokens.outlineVariant),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(color: AppTokens.background, borderRadius: BorderRadius.circular(12)),
+                    alignment: Alignment.center,
+                    child: Icon(Icons.fitness_center, size: 16, color: AppTokens.onSurfaceVar),
                   ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
-                  decoration: BoxDecoration(color: AppTokens.errorSoft, borderRadius: BorderRadius.circular(999)),
-                  child: Text('منقضی', style: TextStyle(fontFamily: 'Vazir', fontSize: 11, fontWeight: FontWeight.w700, color: AppTokens.error)),
-                ),
-              ],
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(template?.name ?? 'برنامه', style: TextStyle(fontFamily: 'Vazir', fontSize: 13, fontWeight: FontWeight.w800, color: AppTokens.onSurface)),
+                        SizedBox(height: 2),
+                        Text('شروع: ${p.startDate ?? '—'} · ${fa(p.days)} روز', style: TextStyle(fontFamily: 'Vazir', fontSize: 11, color: AppTokens.onSurfaceVar)),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+                    decoration: BoxDecoration(color: AppTokens.errorSoft, borderRadius: BorderRadius.circular(999)),
+                    child: Text('منقضی', style: TextStyle(fontFamily: 'Vazir', fontSize: 11, fontWeight: FontWeight.w700, color: AppTokens.error)),
+                  ),
+                ],
+              ),
             ),
           );
         }),
