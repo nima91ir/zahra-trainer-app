@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:shamsi_date/shamsi_date.dart';
+import 'package:shamsi_date/shamsi_date.dart' as shamsi;
 
 import '../../state/app_state.dart';
 import '../../theme/app_tokens.dart';
 import '../../utils/jalali_calendar.dart' as jc;
 import '../../utils/persian_numbers.dart';
+import '../../widgets/jalali_calendar.dart';
 import '../../widgets/settings_sheet.dart';
 
 class PastAttendanceScreen extends StatefulWidget {
@@ -22,12 +23,10 @@ class _PastAttendanceScreenState extends State<PastAttendanceScreen> {
   final Map<String, String> _draftAttendance = {};
   String? _selectedDate;
 
-  static const List<String> _dows = ['ش', 'ی', 'د', 'س', 'چ', 'پ', 'ج'];
-
   @override
   void initState() {
     super.initState();
-    final today = Jalali.fromDateTime(DateTime.now());
+    final today = jc.JalaliDate.today();
     _viewYear = today.year;
     _viewMonth = today.month;
     _loadDraft();
@@ -35,10 +34,34 @@ class _PastAttendanceScreenState extends State<PastAttendanceScreen> {
 
   void _loadDraft() {
     final state = context.read<AppState>();
-    final records = state.attendanceForClient(widget.clientId);
-    for (final rec in records) {
+    final activePlan = state.activePlanForClient(widget.clientId);
+    if (activePlan == null || activePlan.startDate == null) return;
+
+    final start = jc.JalaliDate.tryParse(activePlan.startDate!);
+    if (start == null) return;
+
+    final startJdn = shamsi.Jalali(start.year, start.month, start.day).julianDayNumber;
+    final template = state.templateById(activePlan.templateId);
+    final duration = template?.days ?? activePlan.days;
+    final endJdn = startJdn + duration - 1;
+
+    for (final rec in state.attendanceForClient(widget.clientId)) {
+      final recDate = jc.JalaliDate.tryParse(rec.date);
+      if (recDate == null) continue;
+      final recJdn = shamsi.Jalali(recDate.year, recDate.month, recDate.day).julianDayNumber;
+      if (recJdn < startJdn || recJdn > endJdn) continue;
       _draftAttendance[rec.date] = rec.status;
     }
+  }
+
+  Map<String, int> _buildCounts(String status) {
+    final map = <String, int>{};
+    for (final entry in _draftAttendance.entries) {
+      if (entry.value == status) {
+        map[entry.key] = (map[entry.key] ?? 0) + 1;
+      }
+    }
+    return map;
   }
 
   void _toggleDay(String date) {
@@ -49,7 +72,7 @@ class _PastAttendanceScreenState extends State<PastAttendanceScreen> {
       final month = int.tryParse(parts[1]);
       final day = int.tryParse(parts[2]);
       if (year != null && month != null && day != null) {
-    final today = Jalali.fromDateTime(DateTime.now());
+        final today = jc.JalaliDate.today();
         if (year > today.year ||
             (year == today.year && month > today.month) ||
             (year == today.year && month == today.month && day > today.day)) {
@@ -111,16 +134,8 @@ class _PastAttendanceScreenState extends State<PastAttendanceScreen> {
     final activePlan = state.activePlanForClient(widget.clientId);
     final template = activePlan != null ? state.templateById(activePlan.templateId) : null;
 
-    // Use shamsi_date for accurate calendar math
-    final jDate = Jalali(_viewYear, _viewMonth, 1);
-    final totalDays = jDate.monthLength;
-    final firstWeekDay = jDate.weekDay; // 1=Shanbe, 7=Jomeh
-    final leadingEmptyDays = firstWeekDay - 1;
-    
-    final today = Jalali.fromDateTime(DateTime.now());
-
-    // Get month name from your custom utility for consistency
-    final monthName = jc.JalaliDate(_viewYear, _viewMonth, 1).monthName;
+    final presentCounts = _buildCounts('present');
+    final absentCounts = _buildCounts('absent');
 
     return Scaffold(
       appBar: AppBar(
@@ -198,107 +213,16 @@ class _PastAttendanceScreenState extends State<PastAttendanceScreen> {
           SizedBox(height: 14),
 
           // Calendar Card
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: AppTokens.surface,
-              borderRadius: BorderRadius.circular(AppTokens.rLg),
-              border: Border.all(color: AppTokens.outlineVariant),
-            ),
-            child: Column(
-              children: [
-                // Header
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    IconButton(
-                      icon: Icon(Icons.chevron_right, size: 20),
-                      onPressed: _prevMonth,
-                      color: AppTokens.onSurfaceVar,
-                    ),
-                    Text(
-                      '$monthName ${fa(_viewYear)}',
-                      style: TextStyle(fontFamily: 'Vazir', fontSize: 14, fontWeight: FontWeight.w800, color: AppTokens.onSurface),
-                    ),
-                    IconButton(
-                      icon: Icon(Icons.chevron_left, size: 20),
-                      onPressed: _nextMonth,
-                      color: AppTokens.onSurfaceVar,
-                    ),
-                  ],
-                ),
-                SizedBox(height: 12),
-                
-                // DOW Headers
-                Row(
-                  children: _dows.map((d) => Expanded(
-                    child: Center(
-                      child: Text(d, style: TextStyle(fontFamily: 'Vazir', fontSize: 10, fontWeight: FontWeight.w700, color: AppTokens.onSurfaceVar.withValues(alpha: 0.7))),
-                    ),
-                  )).toList(),
-                ),
-                SizedBox(height: 6),
-
-                // Days Grid
-                GridView.count(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  crossAxisCount: 7,
-                  mainAxisSpacing: 4,
-                  crossAxisSpacing: 4,
-                  childAspectRatio: 1,
-                  children: [
-                    ...List.generate(leadingEmptyDays, (_) => const SizedBox.shrink()),
-                    ...List.generate(totalDays, (index) {
-                      final day = index + 1;
-                      final dateStr = '${fa(_viewYear)}/${fa(_viewMonth.toString().padLeft(2, '0'))}/${fa(day.toString().padLeft(2, '0'))}';
-                      final status = _draftAttendance[dateStr];
-                      final isToday = today.year == _viewYear && today.month == _viewMonth && today.day == day;
-                      final isSelected = _selectedDate == dateStr;
-
-                      return GestureDetector(
-                        onTap: () => _toggleDay(dateStr),
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: isSelected 
-                                ? AppTokens.primary 
-                                : isToday 
-                                    ? AppTokens.primary.withValues(alpha: 0.14) 
-                                    : Colors.transparent,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(
-                                fa(day),
-                                style: TextStyle(
-                                  fontFamily: 'Vazir',
-                                  fontSize: 12.5,
-                                  fontWeight: isSelected ? FontWeight.w900 : (isToday ? FontWeight.w900 : FontWeight.w600),
-                                  color: isSelected ? Colors.white : (isToday ? AppTokens.primaryDark : AppTokens.onSurface),
-                                ),
-                              ),
-                              SizedBox(height: 4),
-                              if (status != null)
-                                Container(
-                                  width: 4, height: 4,
-                                  decoration: BoxDecoration(
-                                    color: isSelected 
-                                        ? (status == 'present' ? Colors.white : const Color(0xFFF5C6C6)) 
-                                        : (status == 'present' ? AppTokens.success : AppTokens.error),
-                                    shape: BoxShape.circle,
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
-                      );
-                    }),
-                  ],
-                ),
-              ],
-            ),
+          JalaliCalendar(
+            year: _viewYear,
+            month: _viewMonth,
+            selectedDate: _selectedDate,
+            presentCounts: presentCounts,
+            absentCounts: absentCounts,
+            showLegend: true,
+            onPrevMonth: _prevMonth,
+            onNextMonth: _nextMonth,
+            onDayTap: _toggleDay,
           ),
           SizedBox(height: 14),
 

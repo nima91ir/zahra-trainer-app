@@ -275,7 +275,6 @@ class AppState extends ChangeNotifier {
     required int templateId,
     required String startDate,
   }) async {
-    print('addPlan: clientId=$clientId, templateId=$templateId, startDate=$startDate');
     final template = templateById(templateId);
     if (template == null) return null;
 
@@ -306,19 +305,16 @@ class AppState extends ChangeNotifier {
       // Create active
       final parsed = jc.JalaliDate.tryParse(startDate);
       final today = jc.JalaliDate.today();
-      print('addPlan: parsed=$parsed, today=$today');
 
       int elapsedDays = 0;
       int pastAttendanceCount = 0;
       if (parsed != null) {
-        // Elapsed days between startDate and today (inclusive of start, exclusive of today if past)
         final start = parsed;
         final isPast = start.year < today.year ||
             (start.year == today.year && start.month < today.month) ||
             (start.year == today.year &&
                 start.month == today.month &&
                 start.day < today.day);
-        print('addPlan: isPast=$isPast, start=$start, today=$today');
         
         if (isPast) {
           final startJdn = shamsi.Jalali(start.year, start.month, start.day).julianDayNumber;
@@ -334,14 +330,12 @@ class AppState extends ChangeNotifier {
                   a.date.compareTo(normalizedToday) <= 0 &&
                   (a.status == 'present' || a.status == 'absent'))
               .length;
-          print('addPlan: elapsedDays=$elapsedDays, pastAttendanceCount=$pastAttendanceCount');
         }
       }
 
       final remainingDays = (template.days - elapsedDays).clamp(0, template.days);
       final remainingSessions =
           (template.sessions - pastAttendanceCount).clamp(0, template.sessions);
-      print('addPlan: remainingDays=$remainingDays, remainingSessions=$remainingSessions');
 
       final plan = ClientPlan(
         clientId: clientId,

@@ -119,7 +119,29 @@ class _ClientsScreenState extends State<ClientsScreen> {
                 ),
                 Expanded(
                   child: filteredClients.isEmpty
-                      ? const Center(child: Padding(padding: EdgeInsets.all(24), child: Text('نتیجه‌ای پیدا نشد', style: TextStyle(fontFamily: 'Vazir', fontSize: 13, color: AppTokens.onSurfaceVar))))
+                      ? Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(24),
+                            child: Column(
+                              children: [
+                                Icon(Icons.search_off_rounded, size: 48, color: AppTokens.onSurfaceVar),
+                                SizedBox(height: 12),
+                                Text('نتیجه‌ای پیدا نشد', style: TextStyle(fontFamily: 'Vazir', fontSize: 13, color: AppTokens.onSurfaceVar)),
+                                if (_selectedTagIds.isNotEmpty || _searchQuery.isNotEmpty) ...[
+                                  SizedBox(height: 8),
+                                  TextButton.icon(
+                                    onPressed: () => setState(() {
+                                      _selectedTagIds.clear();
+                                      _searchQuery = '';
+                                    }),
+                                    icon: Icon(Icons.filter_list_off_rounded, size: 18),
+                                    label: Text('پاک کردن فیلترها', style: TextStyle(fontFamily: 'Vazir')),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        )
                       : ListView.builder(
                           padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
                           itemCount: filteredClients.length,
@@ -166,8 +188,9 @@ class _FilterChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return InkWell(
       onTap: onTap,
+      borderRadius: BorderRadius.circular(999),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(

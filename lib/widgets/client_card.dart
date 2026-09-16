@@ -137,30 +137,51 @@ class ClientCard extends StatelessWidget {
               ],
 
               // Stats: remaining days | remaining sessions
-              Row(
-                children: [
-                  Expanded(
-                    child: _StatCell(
-                      label: 'روز باقی‌مانده',
-                      value: fa(remainingDays),
-                      color: daysColor,
+              if (plan != null) ...[
+                Row(
+                  children: [
+                    Expanded(
+                      child: _StatCell(
+                        label: 'روز باقی‌مانده',
+                        value: fa(remainingDays),
+                        color: daysColor,
+                      ),
+                    ),
+                    Container(
+                      width: 1,
+                      height: 28,
+                      color: AppTokens.outlineVariant,
+                    ),
+                    Expanded(
+                      child: _StatCell(
+                        label: 'جلسات باقی‌مانده',
+                        value: fa(remainingSessions),
+                        color: sessionsColor,
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: 10),
+              ] else ...[
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                  decoration: BoxDecoration(
+                    color: AppTokens.background,
+                    borderRadius: BorderRadius.circular(AppTokens.rSm),
+                  ),
+                  child: Text(
+                    'بدون برنامه فعال',
+                    style: TextStyle(
+                      fontFamily: 'Vazir',
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: AppTokens.onSurfaceVar,
                     ),
                   ),
-                  Container(
-                    width: 1,
-                    height: 28,
-                    color: AppTokens.outlineVariant,
-                  ),
-                  Expanded(
-                    child: _StatCell(
-                      label: 'جلسات باقی‌مانده',
-                      value: fa(remainingSessions),
-                      color: sessionsColor,
-                    ),
-                  ),
-                ],
-              ),
-              SizedBox(height: 10),
+                ),
+                SizedBox(height: 10),
+              ],
 
               // Attendance row
               Container(

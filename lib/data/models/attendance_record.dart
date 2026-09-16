@@ -30,6 +30,17 @@ class AttendanceRecord {
         status: map['status'] as String,
       );
 
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is AttendanceRecord &&
+          other.clientId == clientId &&
+          other.date == date &&
+          other.status == status;
+
+  @override
+  int get hashCode => Object.hash(clientId, date, status);
+
   AttendanceRecord copyWith({
     int? id,
     int? clientId,

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shamsi_date/shamsi_date.dart' as shamsi;
 
 import '../../data/models/client.dart';
 import '../../screens/client_detail/client_detail_screen.dart';
@@ -219,14 +220,34 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final state = context.watch<AppState>();
     final today = jc.JalaliDate.today();
 
-    // Attendance dots for the current month
+    // Attendance dots for the current month (only within active plan ranges)
     final presentCounts = <String, int>{};
     final absentCounts = <String, int>{};
-    for (final rec in state.attendance) {
-      if (rec.status == 'present') {
-        presentCounts[rec.date] = (presentCounts[rec.date] ?? 0) + 1;
-      } else if (rec.status == 'absent') {
-        absentCounts[rec.date] = (absentCounts[rec.date] ?? 0) + 1;
+    for (final client in state.clients) {
+      if (client.id == null) continue;
+      final activePlan = state.activePlanForClient(client.id!);
+      if (activePlan == null || activePlan.startDate == null) continue;
+
+      final start = jc.JalaliDate.tryParse(activePlan.startDate!);
+      if (start == null) continue;
+
+      final startJdn = shamsi.Jalali(start.year, start.month, start.day).julianDayNumber;
+      final template = state.templateById(activePlan.templateId);
+      final duration = template?.days ?? activePlan.days;
+      final endJdn = startJdn + duration - 1;
+
+      for (final rec in state.attendance) {
+        if (rec.clientId != client.id) continue;
+        final recDate = jc.JalaliDate.tryParse(rec.date);
+        if (recDate == null) continue;
+        final recJdn = shamsi.Jalali(recDate.year, recDate.month, recDate.day).julianDayNumber;
+        if (recJdn < startJdn || recJdn > endJdn) continue;
+
+        if (rec.status == 'present') {
+          presentCounts[rec.date] = (presentCounts[rec.date] ?? 0) + 1;
+        } else if (rec.status == 'absent') {
+          absentCounts[rec.date] = (absentCounts[rec.date] ?? 0) + 1;
+        }
       }
     }
 

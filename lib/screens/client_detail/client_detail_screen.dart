@@ -809,7 +809,7 @@ class _PastPlansSection extends StatelessWidget {
         SizedBox(height: 10),
         ...pastPlans.map((p) {
           final template = state.templateById(p.templateId);
-          return GestureDetector(
+          return InkWell(
             onTap: () {
               final state = context.read<AppState>();
               final template = state.templateById(p.templateId);
@@ -820,6 +820,9 @@ class _PastPlansSection extends StatelessWidget {
 
               final startJdn = shamsi.Jalali(start.year, start.month, start.day).julianDayNumber;
               final endJdn = startJdn + duration - 1;
+              final endDateTime = shamsi.Jalali(start.year, start.month, start.day).toDateTime().add(Duration(days: duration - 1));
+              final endJalali = shamsi.Jalali.fromDateTime(endDateTime);
+              final endDateStr = jc.JalaliDate(endJalali.year, endJalali.month, endJalali.day).toString();
 
               final records = state.attendance
                   .where((a) => a.clientId == clientId)
@@ -842,7 +845,7 @@ class _PastPlansSection extends StatelessWidget {
               showDialog(
                 context: context,
                 builder: (ctx) => AlertDialog(
-                  title: Text(template?.name ?? 'برنامه', style: TextStyle(fontFamily: 'Vazir')),
+                  title: Text('${template?.name ?? 'برنامه'} ($start — $endDateStr)', style: TextStyle(fontFamily: 'Vazir')),
                   content: records.isEmpty
                       ? Text('هیچ رکورد حضوری یافت نشد', style: TextStyle(fontFamily: 'Vazir'))
                       : SizedBox(
@@ -911,8 +914,9 @@ class _PastPlansSection extends StatelessWidget {
                 ],
               ),
             ),
-          );
-        }),
+          ),
+        );
+      }),
       ],
     );
   }
