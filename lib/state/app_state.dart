@@ -69,7 +69,35 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> _loadAttendance() async {
-    attendance = await _db.getAllAttendance();
+    final all = await _db.getAllAttendance();
+
+    final bestByKey = <String, AttendanceRecord>{};
+    final toDelete = <AttendanceRecord>[];
+
+    for (final r in all) {
+      final key = '${r.clientId}_${r.date}';
+      final existing = bestByKey[key];
+      if (existing == null) {
+        bestByKey[key] = r;
+      } else {
+        final existingScore = existing.status == 'present' ? 1 : 0;
+        final newScore = r.status == 'present' ? 1 : 0;
+        if (newScore > existingScore ||
+            (newScore == existingScore &&
+                (r.id ?? 0) > (existing.id ?? 0))) {
+          bestByKey[key] = r;
+          toDelete.add(existing);
+        } else {
+          toDelete.add(r);
+        }
+      }
+    }
+
+    for (final r in toDelete) {
+      if (r.id != null) await _db.deleteAttendance(r.id!);
+    }
+
+    attendance = bestByKey.values.toList();
   }
 
   Future<void> _loadTags() async {
@@ -506,18 +534,14 @@ class AppState extends ChangeNotifier {
     String status,
     String todayJalali,
   ) async {
-    // Remove any existing record for today
-    final existing = attendance.firstWhere(
-      (a) => a.clientId == clientId && a.date == todayJalali,
-      orElse: () => const AttendanceRecord(
-          clientId: 0, date: '', status: ''),
-    );
-    if (existing.clientId != 0 && existing.id != null) {
-      await _db.deleteAttendance(existing.id!);
-      attendance.remove(existing);
+    final existing = attendance
+        .where((a) => a.clientId == clientId && a.date == todayJalali)
+        .toList();
+    for (final r in existing) {
+      if (r.id != null) await _db.deleteAttendance(r.id!);
     }
+    attendance.removeWhere((a) => a.clientId == clientId && a.date == todayJalali);
 
-    // Insert new record
     final rec = AttendanceRecord(
       clientId: clientId,
       date: todayJalali,
@@ -546,15 +570,13 @@ class AppState extends ChangeNotifier {
   /// Removes today's attendance record for the client and refunds 1
   /// session back to the active plan (or bonus).
   Future<void> undoAttendance(int clientId, String todayJalali) async {
-    final existing = attendance.firstWhere(
-      (a) => a.clientId == clientId && a.date == todayJalali,
-      orElse: () => const AttendanceRecord(
-          clientId: 0, date: '', status: ''),
-    );
-    if (existing.clientId == 0) return;
-
-    if (existing.id != null) await _db.deleteAttendance(existing.id!);
-    attendance.remove(existing);
+    final existing = attendance
+        .where((a) => a.clientId == clientId && a.date == todayJalali)
+        .toList();
+    for (final r in existing) {
+      if (r.id != null) await _db.deleteAttendance(r.id!);
+    }
+    attendance.removeWhere((a) => a.clientId == clientId && a.date == todayJalali);
 
     // Refund
     final active = activePlanForClient(clientId);

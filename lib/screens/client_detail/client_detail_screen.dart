@@ -4,6 +4,7 @@ import 'package:shamsi_date/shamsi_date.dart' as shamsi;
 
 import '../../data/models/client.dart';
 import '../../data/models/client_plan.dart';
+import '../../data/models/attendance_record.dart';
 import '../../state/app_state.dart';
 import '../../screens/add_edit_client/add_edit_client_screen.dart';
 import '../../screens/add_plan/add_plan_screen.dart';
@@ -824,7 +825,7 @@ class _PastPlansSection extends StatelessWidget {
               final endJalali = shamsi.Jalali.fromDateTime(endDateTime);
               final endDateStr = jc.JalaliDate(endJalali.year, endJalali.month, endJalali.day).toString();
 
-              final records = state.attendance
+              final rawRecords = state.attendance
                   .where((a) => a.clientId == clientId)
                   .where((a) {
                     final date = jc.JalaliDate.tryParse(a.date);
@@ -832,15 +833,33 @@ class _PastPlansSection extends StatelessWidget {
                     final jdn = shamsi.Jalali(date.year, date.month, date.day).julianDayNumber;
                     return jdn >= startJdn && jdn <= endJdn;
                   })
-                  .toList()
+                  .toList();
+
+              final bestByDate = <String, AttendanceRecord>{};
+              for (final r in rawRecords) {
+                final existing = bestByDate[r.date];
+                if (existing == null) {
+                  bestByDate[r.date] = r;
+                } else {
+                  final existingScore = existing.status == 'present' ? 1 : 0;
+                  final newScore = r.status == 'present' ? 1 : 0;
+                  if (newScore > existingScore ||
+                      (newScore == existingScore &&
+                          (r.id ?? 0) > (existing.id ?? 0))) {
+                    bestByDate[r.date] = r;
+                  }
+                }
+              }
+
+              final records = bestByDate.values.toList()
                 ..sort((a, b) {
-                    final da = jc.JalaliDate.tryParse(a.date);
-                    final db = jc.JalaliDate.tryParse(b.date);
-                    if (da == null || db == null) return 0;
-                    final ja = shamsi.Jalali(da.year, da.month, da.day);
-                    final jb = shamsi.Jalali(db.year, db.month, db.day);
-                    return ja.julianDayNumber.compareTo(jb.julianDayNumber);
-                  });
+                  final da = jc.JalaliDate.tryParse(a.date);
+                  final db = jc.JalaliDate.tryParse(b.date);
+                  if (da == null || db == null) return 0;
+                  final ja = shamsi.Jalali(da.year, da.month, da.day);
+                  final jb = shamsi.Jalali(db.year, db.month, db.day);
+                  return ja.julianDayNumber.compareTo(jb.julianDayNumber);
+                });
 
               showDialog(
                 context: context,
@@ -914,9 +933,8 @@ class _PastPlansSection extends StatelessWidget {
                 ],
               ),
             ),
-          ),
-        );
-      }),
+          );
+        }),
       ],
     );
   }
